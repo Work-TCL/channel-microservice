@@ -1,5 +1,9 @@
-require('dotenv').config();
+import dotenv from "dotenv";
+dotenv.config();
 
-export const PORT = process.env.PORT || 5001;
-export const DB_URL = process.env.DB_URL || '';
-export const ENCRYPT_DECRYPT_KEY = process.env.ENCRYPT_DECRYPT_KEY || '';
+
+const { PORT,DB_URL, INSTAGRAM_CLIENT_ID, INSTAGRAM_CLIENT_SECRET, INSTAGRAM_REDIRECT_URI, YOUTUBE_API_KEY , encrypt_decrypt_key} = process.env
+
+const SECRET_KEY = encrypt_decrypt_key || '';
+
+export { PORT,DB_URL, INSTAGRAM_CLIENT_ID, INSTAGRAM_CLIENT_SECRET, INSTAGRAM_REDIRECT_URI, YOUTUBE_API_KEY, SECRET_KEY }

@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import express from 'express'
 import { DB_URL } from '../../config';
 
-const dbUrl: string = DB_URL;
+const dbUrl: string = DB_URL || '';
 
 const mongooseConnection = express()
 
