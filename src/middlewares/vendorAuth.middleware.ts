@@ -3,9 +3,10 @@ import jwt from 'jsonwebtoken';
 import sendApiResponse from '../common';
 import { SECRET_KEY } from '../config';
 import { AccountModel, VendorModel } from '../database/model';
+import { AuthRequest } from '../types/authRequest';
 
 // Middleware function for authenticating API requests
-export const VendorAuthMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+export const VendorAuthMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
     // Get the token from the request headers
     const token = req.header("Authorization")?.split(" ")[1]; // Extract token from "Bearer <token>"
     
@@ -16,7 +17,6 @@ export const VendorAuthMiddleware = async (req: Request, res: Response, next: Ne
     try {
         // Verify and decode the token
         const decoded: any = jwt.verify(token, SECRET_KEY);
-        console.log("decoded", decoded);
 
         const account: any = await AccountModel.findById(decoded._id);
         if (!account) {
@@ -29,7 +29,8 @@ export const VendorAuthMiddleware = async (req: Request, res: Response, next: Ne
         if (!vendor) {
             return sendApiResponse(res, 401, "Invalid credentials");
         }
-        req.headers.user = vendor;
+
+        req.user = vendor;
 
         // Call the next middleware or route handler
         next();

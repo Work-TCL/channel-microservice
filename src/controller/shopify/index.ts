@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import sendApiResponse from "../../common";
+import { ChannelModel } from "../../database/model";
+import { AuthRequest } from "../../types/authRequest";
 
 const loginToShopify = async (): Promise<{ token?: string } | null> => {
     try {
@@ -29,14 +31,28 @@ const loginToShopify = async (): Promise<{ token?: string } | null> => {
     }
 };
 
-const connectShopifyStore = async (req: Request, res: Response) => {
+const connectShopifyStore = async (req: AuthRequest, res: Response) => {
+    const { _id: vendorId } = req.user;
+
     try {
-        const loginData = await loginToShopify();
+        const { id_string } = req.body;
+        if(!id_string) {
+            return sendApiResponse(res, 400, "id_string is required");
+        }
+
+        // check if shopify store already not exists for this vendor
+        const existingChannel = await ChannelModel.findOne({ channelType: "shopify", vendorId: vendorId });
+        if (existingChannel) {
+            return sendApiResponse(res, 200, "Shop already connected", existingChannel);
+        }
+
+        const loginData = await loginToShopify();// get access token
 
         if (!loginData || !loginData.token) {
             return sendApiResponse(res, 401, "Unauthorized - Shopify login failed");
         }
 
+        // get shop details
         const response = await fetch("https://qreff-integration.terreza.com/api/admin/shop", {
             method: "POST",
             headers: {
@@ -44,19 +60,35 @@ const connectShopifyStore = async (req: Request, res: Response) => {
                 "Authorization": `Bearer ${loginData.token}`
             },
             body: JSON.stringify({
-                id_string: "3c9e5138-cd53-4437-99d9-2d47d8c42f37"
+                id_string: id_string
             })
         });
 
+        
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`Shopify Shop Fetch Error: ${response.status} - ${errorText}`);
             return sendApiResponse(res, response.status, "Failed to fetch shop details", { error: errorText });
         }
-
+        
         const data = await response.json();
-        return sendApiResponse(res, 200, "Shop connected successfully", data);
 
+        // create channel
+        const channel = await ChannelModel.create({
+            channelId: id_string,
+            channelType: "shopify",
+            channelStatus: "active",
+            vendorId: vendorId,
+            channelConfig: {
+                domain: data.data.domain,
+                name: data.data.name,
+                shopify_store_id: data.data.shopify_store_id,
+                access_token: loginData.token,
+            }
+        });
+        await channel.save();
+
+        return sendApiResponse(res, 200, "Shop connected successfully", channel);
     } catch (error: any) {
         console.error("Unexpected error during Shopify store connection:", error);
 

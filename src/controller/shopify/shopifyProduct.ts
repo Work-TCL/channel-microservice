@@ -1,23 +1,29 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import sendApiResponse from "../../common";
+import { AuthRequest } from "../../types/authRequest";
+import { ChannelModel } from "../../database/model";
 
-const getShopifyProductList = async (req: Request, res: Response) => {
+const getShopifyProductList = async (req: AuthRequest, res: Response) => {
+    const { _id: vendorId } = req.user;
     try {
-        const { shop= "qreff-testing-stage.myshopify.com", per_page = 20 } = req.body; // Extract parameters from request body
+        const { per_page, cursor } = req.query;
 
-        if (!shop) {
-            return sendApiResponse(res, 400, "Missing required parameter: shop");
+        //find channeldata by vendorId
+        const channel = await ChannelModel.findOne({ channelType: "shopify", vendorId: vendorId });
+        if (!channel) {
+            return sendApiResponse(res, 400, "Shopify channel not found");
         }
 
         const formData = new URLSearchParams();
-        formData.append("shop", shop);
-        formData.append("per_page", per_page.toString());
-
+        formData.append("shop", channel.channelConfig.domain);//shopify app domain
+        formData.append("per_page", per_page ? per_page.toString() : '0');
+        cursor && formData.append("cursor", cursor.toString());
+        
         const response = await fetch('https://qreff-integration.terreza.com/api/admin/product/list', {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": `Bearer 3|YFBKQkQztTTrxhWn5PZnXxZVuK4kVuu7ST61VFzWbec38bdd`
+                "Authorization": `Bearer ${channel.channelConfig.access_token}`
             },
             body: formData,
         });
@@ -35,7 +41,6 @@ const getShopifyProductList = async (req: Request, res: Response) => {
             return sendApiResponse(res, 502, "Bad Gateway - Unexpected response structure", data);
         }
 
-        console.log("Shopify Products Data:", data);
         return sendApiResponse(res, 200, "Shopify product list fetched successfully", data.data);
     } catch (error: any) {
         console.error("Unexpected error during Shopify product list fetch:", error);

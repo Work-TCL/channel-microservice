@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { shopifyController, shopifyProductController } from '../controller';
+import { VendorAuthMiddleware } from '../middlewares/vendorAuth.middleware';
 
 const router = Router();
 
-router.post('/connect', shopifyController.connectShopifyStore); // connect shopify store
+router.post('/connect', VendorAuthMiddleware, shopifyController.connectShopifyStore); // connect shopify store
 
-router.post('/list', shopifyProductController.getShopifyProductList); // get category list
+router.get('/product/list', VendorAuthMiddleware, shopifyProductController.getShopifyProductList); // get category list
 
 export { router as shopifyRouter }; 
