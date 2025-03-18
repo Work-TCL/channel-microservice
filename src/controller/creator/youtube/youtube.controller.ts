@@ -3,6 +3,7 @@ import sendApiResponse from "../../../common";
 import axios from "axios";
 import { YOUTUBE_API_KEY } from "../../../config";
 import { CreatorChannelModel } from "../../../database/model";
+import { AuthRequest } from "../../../types/authRequest";
 
 /**
  * Fetch last 5 videos' view counts for a given YouTube channel ID.
@@ -55,12 +56,13 @@ const getYoutubeVideoData = async (req: Request, res: Response) => {
 /**
  * Validate a YouTube channel name and return its channel ID.
  */
-const validateYoutubeChannel = async (req: Request, res: Response) => {
+const validateYoutubeChannel = async (req: AuthRequest, res: Response) => {
+    const {_id: creatorId} = req.user;
     try {
-        const { channelName, creatorId } = req.body;
+        const { channelName } = req.body;
 
-        if (!channelName || !creatorId) {
-            return sendApiResponse(res, 400, "Channel name and creator ID are required");
+        if (!channelName) {
+            return sendApiResponse(res, 400, "Channel name is required");
         }
 
         // Fetch channel details by name
@@ -73,7 +75,7 @@ const validateYoutubeChannel = async (req: Request, res: Response) => {
         if (!channelResponse.data.items.length) {
             return sendApiResponse(res, 404, "Channel not found");
         }
-
+        console.log("channelResponse", channelResponse.data.items);
         const channelId = channelResponse.data.items[0].id.channelId;
         const fetchedChannelName = channelResponse.data.items[0].snippet.title;
 
@@ -87,6 +89,7 @@ const validateYoutubeChannel = async (req: Request, res: Response) => {
         const newChannel = new CreatorChannelModel({
             creatorId,
             channelId,
+            handleName: channelName,
             channelName: fetchedChannelName,
             channelType: "youtube",
         });

@@ -3,9 +3,10 @@ import jwt from 'jsonwebtoken';
 import sendApiResponse from '../common';
 import { SECRET_KEY } from '../config';
 import { AccountModel, CreatorModel } from '../database/model';
+import { AuthRequest } from '../types/authRequest';
 
 // Middleware function for authenticating API requests
-export const creatorAuthMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+export const creatorAuthMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
     // Get the token from the request headers
     const token = req.header("Authorization")?.split(" ")[1]; // Extract token from "Bearer <token>"
     
@@ -29,7 +30,7 @@ export const creatorAuthMiddleware = async (req: Request, res: Response, next: N
         if (!creator) {
             return sendApiResponse(res, 401, "Invalid credentials");
         }
-        req.headers.user = creator;
+        req.user = creator;
 
         // Call the next middleware or route handler
         next();
