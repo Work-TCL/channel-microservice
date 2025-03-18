@@ -43,7 +43,12 @@ const getYoutubeVideoData = async (req: Request, res: Response) => {
 
         const videoStats = statsResponse.data.items.map((video: any) => ({
             videoId: video.id,
+            title: video.snippet.title,
+            thumbnail: video.snippet.thumbnails.high.url,
+            publishedAt: video.snippet.publishedAt,
+            videoLink: `https://www.youtube.com/watch?v=${video.id}`,
             views: video.statistics.viewCount,
+            likes: video.statistics.likeCount || "N/A", // Some videos may not have like count
         }));
 
         return sendApiResponse(res, 200, "YouTube video data fetched successfully", videoStats);
@@ -80,7 +85,7 @@ const validateYoutubeChannel = async (req: AuthRequest, res: Response) => {
         const fetchedChannelName = channelResponse.data.items[0].snippet.title;
 
         // Check if channel already exists
-        const existingChannel = await CreatorChannelModel.findOne({ channelId });
+        const existingChannel = await CreatorChannelModel.findOne({ creatorId, channelType: "youtube" });
         if (existingChannel) {
             return sendApiResponse(res, 400, "Channel already exists in the database");
         }
