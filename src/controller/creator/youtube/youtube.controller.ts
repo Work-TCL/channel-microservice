@@ -1,62 +1,88 @@
-import { Request, Response } from "express";
+import {  Response } from "express";
 import sendApiResponse from "../../../common";
 import axios from "axios";
 import { YOUTUBE_API_KEY } from "../../../config";
-import { CreatorChannelModel } from "../../../database/model";
+import { CreatorChannelModel, CreatorModel } from "../../../database/model";
 import { AuthRequest } from "../../../types/authRequest";
 
-/**
- * Fetch last 5 videos' view counts for a given YouTube channel ID.
- */
-const getYoutubeVideoData = async (req: Request, res: Response) => {
+const getYoutubeVideoStats = async (channelId: string) => {
     try {
-        const { channelId } = req.query;
-
         if (!channelId) {
-            return sendApiResponse(res, 400, "Channel ID is required");
+            throw new Error('Channel ID is required');
         }
 
-        // Validate if the channel ID exists
-        const channelResponse = await axios.get(
-            `https://www.googleapis.com/youtube/v3/channels?key=${YOUTUBE_API_KEY}&id=${channelId}&part=id`
-        );
+        const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY; // Ensure this is set in env
 
-        if (!channelResponse.data.items.length) {
-            return sendApiResponse(res, 404, "Invalid or non-existent channel ID");
-        }
-
-        // Fetch last 5 videos
+        // Fetch last 5 video IDs
         const videoResponse = await axios.get(
             `https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${channelId}&part=id&order=date&type=video&maxResults=5`
         );
 
         if (!videoResponse.data.items.length) {
-            return sendApiResponse(res, 404, "No videos found for this channel");
+            throw new Error('No videos found for this channel');
         }
 
-        const videoIds = videoResponse.data.items.map((item: any) => item.id.videoId).join(",");
+        const lastFiveVideoIds = videoResponse.data.items.map((item: any) => item.id.videoId).join(",");
 
-        // Fetch view counts for these videos
+        // Fetch total views for last 5 videos
         const statsResponse = await axios.get(
-            `https://www.googleapis.com/youtube/v3/videos?key=${YOUTUBE_API_KEY}&id=${videoIds}&part=statistics`
+            `https://www.googleapis.com/youtube/v3/videos?key=${YOUTUBE_API_KEY}&id=${lastFiveVideoIds}&part=statistics`
         );
 
-        const videoStats = statsResponse.data.items.map((video: any) => ({
-            videoId: video.id,
-            title: video.snippet.title,
-            thumbnail: video.snippet.thumbnails.high.url,
-            publishedAt: video.snippet.publishedAt,
-            videoLink: `https://www.youtube.com/watch?v=${video.id}`,
-            views: video.statistics.viewCount,
-            likes: video.statistics.likeCount || "N/A", // Some videos may not have like count
-        }));
+        const lastFiveViews = statsResponse.data.items.reduce(
+            (sum: number, video: any) => sum + Number(video.statistics.viewCount || 0),
+            0
+        );
 
-        return sendApiResponse(res, 200, "YouTube video data fetched successfully", videoStats);
+        // Calculate date one month ago (without dayjs)
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        const oneMonthAgoISO = oneMonthAgo.toISOString();
+
+        // Fetch all videos uploaded in the last month
+        let totalMonthViews = 0;
+        let nextPageToken = "";
+
+        do {
+            const monthVideoResponse = await axios.get(
+                `https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${channelId}&part=id&order=date&type=video&publishedAfter=${oneMonthAgoISO}&maxResults=50&pageToken=${nextPageToken}`
+            );
+
+            if (!monthVideoResponse.data.items.length) break;
+
+            const videoIds = monthVideoResponse.data.items.map((video: any) => video.id.videoId).join(",");
+
+            // Fetch statistics for these videos
+            const monthStatsResponse = await axios.get(
+                `https://www.googleapis.com/youtube/v3/videos?key=${YOUTUBE_API_KEY}&id=${videoIds}&part=statistics`
+            );
+
+            totalMonthViews += monthStatsResponse.data.items.reduce(
+                (sum: number, video: any) => sum + Number(video.statistics.viewCount || 0),
+                0
+            );
+
+            nextPageToken = monthVideoResponse.data.nextPageToken || "";
+        } while (nextPageToken);
+
+        await CreatorChannelModel.updateOne({ channelId }, { $set: { lastFiveVideoViews: lastFiveViews, lastMonthViews: totalMonthViews } });
+        
     } catch (error: any) {
-        console.log("error while fetching youtube video data", error);
-        return sendApiResponse(res, 500, "Failed to fetch data", error.message);
+        console.error("Error while fetching YouTube video stats:", error);
     }
 };
+
+const getMidnightYTData = async()=>{
+    try{
+        const channels = await CreatorChannelModel.find({channelType:"youtube"}).select("channelId");
+        for(const channel of channels){
+            await getYoutubeVideoStats(channel.channelId);
+        }
+    }catch(error:any){
+        console.log("error while getting midnight YT data", error);
+    }
+}
+
 
 /**
  * Validate a YouTube channel name and return its channel ID.
@@ -92,22 +118,29 @@ const validateYoutubeChannel = async (req: AuthRequest, res: Response) => {
 
         // Save channel to DB
         const newChannel = new CreatorChannelModel({
-            creatorId,
             channelId,
             handleName: channelName,
             channelName: fetchedChannelName,
             channelType: "youtube",
         });
 
+        const creator = await CreatorModel.findById(creatorId);
+        if(!creator){
+            return sendApiResponse(res, 404, "Creator not found");
+        }
+        creator.channels.push(newChannel._id);
+        await creator.save();
         await newChannel.save();
+        await getYoutubeVideoStats(channelId);
 
         return sendApiResponse(res, 200, "Channel validated and stored successfully", {
             channelId,
             channelName: fetchedChannelName,
         });
     } catch (error: any) {
+        console.log("error while validating and storing channel", error);
         return sendApiResponse(res, 500, "Failed to validate and store channel", error.message);
     }
 };
 
-export { getYoutubeVideoData, validateYoutubeChannel };
+export { getYoutubeVideoStats, getMidnightYTData, validateYoutubeChannel };
