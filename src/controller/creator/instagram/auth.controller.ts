@@ -208,25 +208,73 @@ const getInstagramVideoStats = async (access_token: string, channelId: string) =
     }
 };
 
-const refreshInstagramToken = async (long_lived_token: string) => {
+
+const getMidnightInstagramData = async () => {
     try {
-        const response = await axios.get(
-            `https://graph.instagram.com/refresh_access_token`, {
-            params: {
-                grant_type: "ig_refresh_token",
-                access_token: long_lived_token
+        const channels: any = await CreatorChannelModel.find({ channelType: "instagram" });
+        for (const channel of channels) {
+            await getInstagramVideoStats(channel.token, channel.channelId);
+        }
+    } catch (error: any) {
+        console.log("error while getting midnight instagram data", error);
+    }
+}
+
+/**
+ * Refreshes Instagram long-lived tokens for all Instagram channels.
+ * Only refreshes tokens that were last updated more than 10 days ago.
+ */
+const refreshInstagramToken = async () => {
+    try {
+        // Find Instagram channels where last token refresh was more than 10 days ago
+        const tenDaysAgo = new Date();
+        tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+        const instagramChannels = await CreatorChannelModel.find({
+            channelType: "instagram",
+            $or: [
+                { lastTokenGenerated: { $exists: false } }, // Include documents where lastTokenGenerated does not exist
+                { lastTokenGenerated: { $lte: tenDaysAgo } } // Include documents where lastTokenGenerated is older than ten days
+            ]
+        });
+
+        if (instagramChannels.length === 0) {
+            console.log("✅ No Instagram tokens need refreshing.");
+            return;
+        }
+
+        for (const channel of instagramChannels) {
+            if (!channel.token) {
+                console.warn(`⚠️ No token found for channel: ${channel.channelName}`);
+                continue;
+            }
+
+            try {
+                // Request to refresh the Instagram token
+                const response = await axios.get(`https://graph.instagram.com/refresh_access_token`, {
+                    params: {
+                        grant_type: "ig_refresh_token",
+                        access_token: channel.token,
+                    },
+                });
+
+                const newToken = response.data.access_token;
+                console.log(`✅ Token refreshed for ${channel.channelName}:`, newToken);
+
+                // Update the token in the database
+                channel.token = newToken;
+                channel.lastTokenGenerated = new Date();
+                await channel.save();
+            } catch (error: any) {
+                console.error(
+                    `❌ Failed to refresh token for ${channel.channelName}:`,
+                    error.response?.data || error.message
+                );
             }
         }
-        );
-
-        const newToken = response.data.access_token;
-        console.log("✅ Refreshed Instagram Token:", newToken);
-
-        // Save the new token securely (e.g., update in DB or env file)
-    } catch (error: any) {
-        console.error("❌ Error refreshing Instagram token:", error.response?.data || error.message);
+    } catch (error) {
+        console.error("❌ Error refreshing Instagram tokens:", error);
     }
 };
 
-
-export { handleInstagramAuthCallback, fetchInstagramUserData, getInstagramVideoStats, exchangeForLongLivedToken, refreshInstagramToken };
+export { handleInstagramAuthCallback, fetchInstagramUserData, getMidnightInstagramData, exchangeForLongLivedToken, refreshInstagramToken };
