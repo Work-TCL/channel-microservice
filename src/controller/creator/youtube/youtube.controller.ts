@@ -118,6 +118,7 @@ const validateYoutubeChannel = async (req: AuthRequest, res: Response) => {
 
         // Save channel to DB
         const newChannel = new CreatorChannelModel({
+            creatorId,
             channelId,
             handleName: channelName,
             channelName: fetchedChannelName,
