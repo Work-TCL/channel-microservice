@@ -144,8 +144,9 @@ const validateYoutubeChannel = async (req: AuthRequest, res: Response) => {
 
 
 const handleGoogleOAuth = async (req: Request, res: Response) => {
-    const { code, creatorId } = req.query;
-    console.log("code", code, creatorId);
+    const { code, state } = req.query;
+    const creatorId = state;
+    console.log("code", code, state);
 
     if (!code || !creatorId) {
         return res.redirect(`${FRONTEND_URL}/creator-registration?message=Missing required parameters`);
