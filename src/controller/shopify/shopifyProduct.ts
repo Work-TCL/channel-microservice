@@ -53,4 +53,41 @@ const getShopifyProductList = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export { getShopifyProductList };
+const getShopifyProductById = async (req: AuthRequest, res: Response) => {
+    const { _id: vendorId } = req.user;
+    const { productId } = req.query;
+    try{
+        const channel = await ChannelModel.findOne({ channelType: "shopify", vendorId: vendorId });
+        if (!channel) {
+            return sendApiResponse(res, 400, "Shopify channel not found");
+        }
+
+        const formData = new URLSearchParams();
+        formData.append("shop", channel.channelConfig.domain);
+        formData.append("product_id", productId as string);
+
+        const response = await fetch('https://qreff-integration.terreza.com/api/admin/product-detail', {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": `Bearer ${channel.channelConfig.access_token}`
+            },
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Shopify Product Get Error: ${response.status} - ${errorText}`);
+            return sendApiResponse(res, response.status, "Failed to fetch Shopify product", { error: errorText });
+        }
+        
+        const data = await response.json();
+        return sendApiResponse(res, 200, "Shopify product fetched successfully", data.data);
+    }
+    catch(error:any){
+        console.error("Unexpected error during Shopify product get:", error);
+        return sendApiResponse(res, 500, "Internal server error", { error: error.message });
+    }
+}
+
+export { getShopifyProductList, getShopifyProductById };

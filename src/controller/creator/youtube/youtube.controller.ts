@@ -1,7 +1,7 @@
-import {  Response } from "express";
+import {  Request, Response } from "express";
 import sendApiResponse from "../../../common";
 import axios from "axios";
-import { YOUTUBE_API_KEY } from "../../../config";
+import { FRONTEND_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, YOUTUBE_API_KEY } from "../../../config";
 import { CreatorChannelModel, CreatorModel } from "../../../database/model";
 import { AuthRequest } from "../../../types/authRequest";
 
@@ -10,8 +10,6 @@ const getYoutubeVideoStats = async (channelId: string) => {
         if (!channelId) {
             throw new Error('Channel ID is required');
         }
-
-        const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY; // Ensure this is set in env
 
         // Fetch last 5 video IDs
         const videoResponse = await axios.get(
@@ -144,4 +142,80 @@ const validateYoutubeChannel = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export { getYoutubeVideoStats, getMidnightYTData, validateYoutubeChannel };
+
+const handleGoogleOAuth = async (req: Request, res: Response) => {
+    const { code, creatorId } = req.query;
+    console.log("code", code, creatorId);
+
+    if (!code || !creatorId) {
+        return res.redirect(`${FRONTEND_URL}/creator-registration?message=Missing required parameters`);
+    }
+
+    try {
+        // Exchange authorization code for tokens
+        const response = await axios.post("https://oauth2.googleapis.com/token", null, {
+            params: {
+                client_id: GOOGLE_CLIENT_ID,
+                client_secret: GOOGLE_CLIENT_SECRET,
+                redirect_uri: GOOGLE_REDIRECT_URI,
+                grant_type: "authorization_code",
+                code,
+            },
+        });
+
+        const { access_token, refresh_token } = response.data;
+        console.log("Access Token:", access_token);
+
+        // Get user's YouTube channel details
+        const ytResponse = await axios.get("https://www.googleapis.com/youtube/v3/channels", {
+            headers: { Authorization: `Bearer ${access_token}` },
+            params: { part: "id,snippet,statistics", mine: true },
+        });
+
+        if (!ytResponse.data.items || ytResponse.data.items.length === 0) {
+            return res.redirect(`${FRONTEND_URL}/creator-registration?error=No YouTube channel found`);
+        }
+
+        const channel = ytResponse.data.items[0];
+        const channelId = channel.id;
+        const channelName = channel.snippet.title;
+        console.log("YouTube Channel:", channelName, creatorId);
+
+        // Check if the creator exists
+        const creator = await CreatorModel.findById(creatorId);
+        if (!creator) {
+            return res.redirect(`${FRONTEND_URL}/creator-registration?message=Creator not found`);
+        }
+
+        // Check if the channel already exists
+        const existingChannel = await CreatorChannelModel.findOne({ creatorId, channelType: "youtube" });
+        if (existingChannel) {
+            return res.redirect(`${FRONTEND_URL}/creator-registration?message=Channel already exists`);
+        }
+
+        // Save channel to DB
+        const newChannel = new CreatorChannelModel({
+            creatorId,
+            channelId,
+            handleName: channelName,
+            channelName,
+            channelType: "youtube",
+        });
+
+        // Link channel to creator
+        creator.channels.push(newChannel._id);
+        await creator.save();
+        await newChannel.save();
+
+        // Fetch YouTube video stats
+        await getYoutubeVideoStats(channelId);
+
+        // Redirect user with success message
+        return res.redirect(`${FRONTEND_URL}/creator-registration?message=Channel linked successfully`);
+    } catch (error: any) {
+        console.error("Google OAuth Error:", error.response?.data || error.message);
+        return res.redirect(`${FRONTEND_URL}/creator-registration?error=Authentication failed`);
+    }
+};
+
+export { getYoutubeVideoStats, getMidnightYTData, validateYoutubeChannel, handleGoogleOAuth };

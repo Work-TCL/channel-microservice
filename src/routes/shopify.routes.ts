@@ -6,6 +6,8 @@ const router = Router();
 
 router.post('/connect', VendorAuthMiddleware, shopifyController.connectShopifyStore); // connect shopify store
 
-router.get('/product/list', VendorAuthMiddleware, shopifyProductController.getShopifyProductList); // get category list
+router.get('/product/list', VendorAuthMiddleware, shopifyProductController.getShopifyProductList); // get product list
+
+router.get('/product', VendorAuthMiddleware, shopifyProductController.getShopifyProductById); // get product by id
 
 export { router as shopifyRouter }; 
