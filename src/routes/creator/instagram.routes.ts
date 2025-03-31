@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { instagramAuthController } from '../../controller';
-import { creatorAuthMiddleware } from '../../middlewares/creatorAuth.middleware';
 
 const router = Router();
 
