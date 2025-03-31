@@ -10,4 +10,6 @@ router.get('/product/list', VendorAuthMiddleware, shopifyProductController.getSh
 
 router.get('/product', VendorAuthMiddleware, shopifyProductController.getShopifyProductById); // get product by id
 
+router.post('/utm/create', VendorAuthMiddleware, shopifyController.generateShopifyUTM); // create shopify utm
+
 export { router as shopifyRouter }; 

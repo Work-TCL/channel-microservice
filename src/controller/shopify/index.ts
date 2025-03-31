@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import sendApiResponse from "../../common";
 import { ChannelModel } from "../../database/model";
 import { AuthRequest } from "../../types/authRequest";
+import axios from "axios";
 
 const loginToShopify = async (): Promise<{ token?: string } | null> => {
     try {
@@ -97,6 +98,73 @@ const connectShopifyStore = async (req: AuthRequest, res: Response) => {
         }
 
         return sendApiResponse(res, 500, "Internal server error", { error: error.message });
+    }
+};
+
+export const generateShopifyUTM = async (req: AuthRequest, res: Response) => {
+    try {
+        const {
+            id,
+            discount_type,
+            discount_value,
+            coupon_code,
+            expires_at,
+            product_id,
+            creator_id,
+            creator_name,
+            collaboration_id,
+            commission_percentage,
+            shop,
+            access_token
+        } = req.body;
+
+        console.log("📥 Incoming Request Body:", req.body);
+
+        if (!shop) {
+            return sendApiResponse(res, 400, "Shop domain is required");
+        }
+
+        const url = "https://qreff-integration.terreza.com/api/admin/utm/create";
+
+        // Create FormData
+        const formData = new FormData();
+        formData.append("discount_type", discount_type);
+        formData.append("discount_value", String(discount_value)); // Ensure numeric values are strings
+        formData.append("coupon_code", coupon_code);
+        formData.append("expires_at", expires_at);
+        formData.append("product_id", product_id);
+        formData.append("creator_id", creator_id);
+        formData.append("creator_name", creator_name);
+        formData.append("collaboration_id", collaboration_id);
+        formData.append("status", "ACTIVE");
+        formData.append("shop", shop);
+        formData.append("commission_percentage", String(commission_percentage));
+
+        console.log("📦 FormData Contents:", Object.fromEntries(formData.entries()));
+
+        // Make Axios request
+        const response = await axios.post(url, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+                Authorization: `Bearer ${access_token}`,
+                "User-Agent": "Mozilla/5.0", 
+                Accept: "application/json",
+            },
+        });
+
+        console.log("✅ Shopify UTM Created Successfully:", response.data);
+        return sendApiResponse(res, 201, "Shopify UTM created successfully", response.data);
+
+    } catch (error: any) {
+        if (error.response) {
+            // Handle API errors
+            console.error(`❌ Shopify UTM Create Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+            return sendApiResponse(res, error.response.status, "Failed to create Shopify UTM", error.response.data);
+        } else {
+            // Handle unexpected errors
+            console.error("❌ Unexpected Error Creating Shopify UTM:", error);
+            return sendApiResponse(res, 500, "Internal server error", { error: error.message });
+        }
     }
 };
 
