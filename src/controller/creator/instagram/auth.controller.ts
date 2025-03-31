@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import sendApiResponse from "../../../common";
-import { INSTAGRAM_CLIENT_ID, INSTAGRAM_CLIENT_SECRET, INSTAGRAM_REDIRECT_URI } from "../../../config";
+import { FRONTEND_URL, INSTAGRAM_CLIENT_ID, INSTAGRAM_CLIENT_SECRET, INSTAGRAM_REDIRECT_URI } from "../../../config";
 import axios from "axios";
 import { CreatorChannelModel, CreatorModel } from "../../../database/model";
 import { AuthRequest } from "../../../types/authRequest";
@@ -10,12 +10,12 @@ import { AuthRequest } from "../../../types/authRequest";
  * fetches user details, generates a long-lived token, and saves the user channel data.
  */
 const handleInstagramAuthCallback = async (req: AuthRequest, res: Response) => {
-    const { _id: creatorId } = req.user; // Extract authenticated creator ID
-    const { code } = req.query;
+    const { code, state } = req.query;
+    const creatorId = state;
+    console.log("code", code, state);
 
-    // Validate presence of authorization code
-    if (!code || typeof code !== 'string') {
-        return res.status(400).json({ error: "Missing or invalid Instagram authorization code" });
+    if (!code || !creatorId) {
+        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Missing required parameters`);
     }
 
     try {
@@ -26,34 +26,34 @@ const handleInstagramAuthCallback = async (req: AuthRequest, res: Response) => {
         });
 
         if (existingChannel) {
-            return sendApiResponse(res, 400, "Creator's Instagram channel is already connected.");
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Creator's Instagram channel is already connected`);
         }
 
         // Step 1: Exchange authorization code for a short-lived access token
         const params = new URLSearchParams();
-        params.append('client_id', INSTAGRAM_CLIENT_ID || '');
-        params.append('client_secret', INSTAGRAM_CLIENT_SECRET || '');
-        params.append('grant_type', 'authorization_code');
-        params.append('redirect_uri', 'https://trurereff-new.vercel.app/login'); // Must match Instagram App settings
-        params.append('code', code);
+        params.append("client_id", INSTAGRAM_CLIENT_ID || "");
+        params.append("client_secret", INSTAGRAM_CLIENT_SECRET || "");
+        params.append("grant_type", "authorization_code");
+        params.append("redirect_uri", "https://trurereff-new.vercel.app/login"); // Must match Instagram App settings
+        params.append("code", code as string);
 
         const response = await axios.post("https://api.instagram.com/oauth/access_token", params, {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
         });
 
-        const { access_token, user_id } = response.data; // Extract short-lived token
+        const { access_token, user_id } = response.data;
         console.log("Short-lived Access Token:", access_token);
 
         // Step 2: Exchange short-lived token for a long-lived token
         const long_lived_token = await exchangeForLongLivedToken(access_token);
         if (!long_lived_token) {
-            throw new Error("Failed to generate long-lived Instagram token");
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Failed to generate long-lived Instagram token`);
         }
 
         // Step 3: Fetch user details using the access token
         const instagramUserData = await fetchInstagramUserData(long_lived_token);
         if (!instagramUserData.id) {
-            throw new Error("Failed to fetch Instagram user data");
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Failed to fetch Instagram user data`);
         }
 
         console.log("Instagram User Data:", instagramUserData);
@@ -71,18 +71,18 @@ const handleInstagramAuthCallback = async (req: AuthRequest, res: Response) => {
         // Step 5: Associate the new channel with the creator and save to the database
         const creator = await CreatorModel.findById(creatorId);
         if (!creator) {
-            return sendApiResponse(res, 404, "Creator not found");
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Creator not found`);
         }
 
-        creator.channels.push(newChannel._id); // Link channel to creator
+        creator.channels.push(newChannel._id);
         await creator.save();
         await newChannel.save();
 
-        return sendApiResponse(res, 200, "Instagram authentication successful", newChannel);
+        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&success=Instagram authentication successful`);
 
     } catch (error) {
         console.error("Error during Instagram authentication process:", error);
-        return sendApiResponse(res, 500, "An error occurred while processing Instagram authentication", error);
+        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=An error occurred while processing Instagram authentication`);
     }
 };
 
