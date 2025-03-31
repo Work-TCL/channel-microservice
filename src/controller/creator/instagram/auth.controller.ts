@@ -9,7 +9,7 @@ import { AuthRequest } from "../../../types/authRequest";
  * Handles Instagram authentication callback, exchanges code for access token,
  * fetches user details, generates a long-lived token, and saves the user channel data.
  */
-const handleInstagramAuthCallback = async (req: AuthRequest, res: Response) => {
+const handleInstagramAuthCallback = async (req: Request, res: Response) => {
     const { code, state } = req.query;
     const creatorId = state;
     console.log("code", code, state);
