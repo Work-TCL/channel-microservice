@@ -3,7 +3,6 @@ import sendApiResponse from "../../../common";
 import { FRONTEND_URL, INSTAGRAM_CLIENT_ID, INSTAGRAM_CLIENT_SECRET, INSTAGRAM_REDIRECT_URI } from "../../../config";
 import axios from "axios";
 import { CreatorChannelModel, CreatorModel } from "../../../database/model";
-import { AuthRequest } from "../../../types/authRequest";
 
 /**
  * Handles Instagram authentication callback, exchanges code for access token,
@@ -34,7 +33,7 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
         params.append("client_id", INSTAGRAM_CLIENT_ID || "");
         params.append("client_secret", INSTAGRAM_CLIENT_SECRET || "");
         params.append("grant_type", "authorization_code");
-        params.append("redirect_uri", "https://trurereff-new.vercel.app/login"); // Must match Instagram App settings
+        params.append("redirect_uri", INSTAGRAM_REDIRECT_URI || ''); // Must match Instagram App settings
         params.append("code", code as string);
 
         const response = await axios.post("https://api.instagram.com/oauth/access_token", params, {
