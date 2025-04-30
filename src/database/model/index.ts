@@ -9,16 +9,36 @@ import VendorSchema from "../../../../shared-models/src/models/vendor";
 import CreatorChannelSchema from "../../../../shared-models/src/models/creatorChannel";
 import AccountSchema from "../../../../shared-models/src/models/account";
 import ChannelSchema from "../../../../shared-models/src/models/channel";
+import CollaborationSchema from "../../../../shared-models/src/models/collaboration";
 
 const ProductModel = mongoose.model("Product", ProductSchema);
 const CategoryModel = mongoose.model("Category", CategorySchema);
 const TagsModel = mongoose.model("Tags", TagsSchema);
 const VendorProductModel = mongoose.model("VendorProduct", VendorProductSchema);
-const CreatorProductModel = mongoose.model("CreatorProduct", CreatorProductSchema);
+const CreatorProductModel = mongoose.model(
+  "CreatorProduct",
+  CreatorProductSchema
+);
 const VendorModel = mongoose.model("Vendor", VendorSchema);
 const CreatorModel = mongoose.model("Creator", CreatorSchema);
-const CreatorChannelModel = mongoose.model("CreatorChannel", CreatorChannelSchema);
+const CreatorChannelModel = mongoose.model(
+  "CreatorChannel",
+  CreatorChannelSchema
+);
 const AccountModel = mongoose.model("Account", AccountSchema);
 const ChannelModel = mongoose.model("Channel", ChannelSchema);
+const CollaborationModel = mongoose.model("Collaboration", CollaborationSchema);
 
-export { ProductModel, CategoryModel, TagsModel, VendorProductModel, CreatorProductModel, VendorModel, CreatorModel, CreatorChannelModel, AccountModel, ChannelModel };
+export {
+  ProductModel,
+  CategoryModel,
+  TagsModel,
+  VendorProductModel,
+  CreatorProductModel,
+  VendorModel,
+  CreatorModel,
+  CreatorChannelModel,
+  AccountModel,
+  ChannelModel,
+  CollaborationModel
+};
