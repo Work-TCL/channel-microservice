@@ -149,7 +149,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
     console.log("code", code, state);
 
     if (!code || !creatorId) {
-        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&message=Missing required parameters`);
+        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&message=Missing required parameters`);
     }
 
     try {
@@ -174,7 +174,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
         });
 
         if (!ytResponse.data.items || ytResponse.data.items.length === 0) {
-            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=No YouTube channel found`);
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&error=No YouTube channel found`);
         }
 
         const channel = ytResponse.data.items[0];
@@ -185,13 +185,13 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
         // Check if the creator exists
         const creator = await CreatorModel.findById(creatorId);
         if (!creator) {
-            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&message=Creator not found`);
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&message=Creator not found`);
         }
 
         // Check if the channel already exists
         const existingChannel = await CreatorChannelModel.findOne({ creatorId, channelType: "youtube" });
         if (existingChannel) {
-            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&message=Channel already exists`);
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&message=Channel already exists`);
         }
 
         // Save channel to DB
@@ -212,10 +212,10 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
         await getYoutubeVideoStats(channelId);
 
         // Redirect user with success message
-        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&message=Channel linked successfully`);
+        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&message=Channel linked successfully`);
     } catch (error: any) {
         console.error("Google OAuth Error:", error.response?.data || error.message);
-        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Authentication failed`);
+        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&error=Authentication failed`);
     }
 };
 

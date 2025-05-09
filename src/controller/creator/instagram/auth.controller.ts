@@ -14,9 +14,8 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
     console.log("code", code, state);
 
     if (!code || !creatorId) {
-        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Missing required parameters`);
+        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&error=Missing required parameters`);
     }
-    console.log("Missing required parameters");
 
     try {
         // Check if the creator already has an Instagram channel connected
@@ -24,12 +23,10 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
             creatorId,
             channelType: "instagram",
         });
-        console.log("existingChannel");
 
         if (existingChannel) {
-            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Creator's Instagram channel is already connected`);
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&error=Creator's Instagram channel is already connected`);
         }
-        console.log("Creator's Instagram channel is already connected");
 
         // Step 1: Exchange authorization code for a short-lived access token
         const params = new URLSearchParams();
@@ -38,30 +35,24 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
         params.append("grant_type", "authorization_code");
         params.append("redirect_uri", INSTAGRAM_REDIRECT_URI || ''); // Must match Instagram App settings
         params.append("code", code as string);
-        console.log("INSTAGRAM_CLIENT_ID",INSTAGRAM_CLIENT_ID,"INSTAGRAM_REDIRECT_URI",INSTAGRAM_REDIRECT_URI,"INSTAGRAM_CLIENT_SECRET",INSTAGRAM_CLIENT_SECRET)
 
         const response = await axios.post("https://api.instagram.com/oauth/access_token", params, {
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
         });
-        console.log("response");
 
         const { access_token, user_id } = response.data;
-        console.log("Short-lived Access Token:", access_token);
 
         // Step 2: Exchange short-lived token for a long-lived token
         const long_lived_token = await exchangeForLongLivedToken(access_token);
         if (!long_lived_token) {
-            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Failed to generate long-lived Instagram token`);
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&error=Failed to generate long-lived Instagram token`);
         }
-        console.log("response");
 
         // Step 3: Fetch user details using the access token
         const instagramUserData = await fetchInstagramUserData(long_lived_token);
         if (!instagramUserData.id) {
-            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Failed to fetch Instagram user data`);
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&error=Failed to fetch Instagram user data`);
         }
-
-        console.log("Instagram User Data:", instagramUserData);
 
         // Step 4: Create a new channel entry for the authenticated creator
         const newChannel = new CreatorChannelModel({
@@ -76,18 +67,18 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
         // Step 5: Associate the new channel with the creator and save to the database
         const creator = await CreatorModel.findById(creatorId);
         if (!creator) {
-            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Creator not found`);
+            return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&error=Creator not found`);
         }
 
         creator.channels.push(newChannel._id);
         await creator.save();
         await newChannel.save();
 
-        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&success=Instagram authentication successful`);
+        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&success=Instagram authentication successful`);
 
     } catch (error) {
         console.error("Error during Instagram authentication process:", error);
-        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=An error occurred while processing Instagram authentication`);
+        return res.redirect(`${FRONTEND_URL}/creator-registration?tab=1&error=An error occurred while processing Instagram authentication`);
     }
 };
 
