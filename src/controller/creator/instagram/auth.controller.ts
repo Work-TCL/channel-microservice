@@ -16,6 +16,7 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
     if (!code || !creatorId) {
         return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Missing required parameters`);
     }
+    console.log("Missing required parameters");
 
     try {
         // Check if the creator already has an Instagram channel connected
@@ -23,10 +24,12 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
             creatorId,
             channelType: "instagram",
         });
+        console.log("existingChannel");
 
         if (existingChannel) {
             return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Creator's Instagram channel is already connected`);
         }
+        console.log("Creator's Instagram channel is already connected");
 
         // Step 1: Exchange authorization code for a short-lived access token
         const params = new URLSearchParams();
@@ -39,6 +42,7 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
         const response = await axios.post("https://api.instagram.com/oauth/access_token", params, {
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
         });
+        console.log("response");
 
         const { access_token, user_id } = response.data;
         console.log("Short-lived Access Token:", access_token);
@@ -48,6 +52,7 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
         if (!long_lived_token) {
             return res.redirect(`${FRONTEND_URL}/creator-registration?tab=2&error=Failed to generate long-lived Instagram token`);
         }
+        console.log("response");
 
         // Step 3: Fetch user details using the access token
         const instagramUserData = await fetchInstagramUserData(long_lived_token);
