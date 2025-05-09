@@ -38,6 +38,7 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
         params.append("grant_type", "authorization_code");
         params.append("redirect_uri", INSTAGRAM_REDIRECT_URI || ''); // Must match Instagram App settings
         params.append("code", code as string);
+        console.log("INSTAGRAM_CLIENT_ID",INSTAGRAM_CLIENT_ID,"INSTAGRAM_REDIRECT_URI",INSTAGRAM_REDIRECT_URI,"INSTAGRAM_CLIENT_SECRET",INSTAGRAM_CLIENT_SECRET)
 
         const response = await axios.post("https://api.instagram.com/oauth/access_token", params, {
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
