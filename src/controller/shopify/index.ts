@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import sendApiResponse from "../../common";
-import { ChannelModel } from "../../database/model";
+import { ChannelModel, VendorModel } from "../../database/model";
 import { AuthRequest } from "../../types/authRequest";
 import axios from "axios";
 
@@ -88,8 +88,9 @@ const connectShopifyStore = async (req: AuthRequest, res: Response) => {
             }
         });
         await channel.save();
+        const updatedVendor = await VendorModel.findByIdAndUpdate(vendorId, { $set: { completed_step: 3 } });
 
-        return sendApiResponse(res, 200, "Shop connected successfully", channel);
+        return sendApiResponse(res, 200, "Shop connected successfully", { ...channel.toObject(), ...updatedVendor?.toObject() });
     } catch (error: any) {
         console.error("Unexpected error during Shopify store connection:", error);
 
