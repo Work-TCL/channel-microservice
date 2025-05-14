@@ -88,7 +88,7 @@ const connectShopifyStore = async (req: AuthRequest, res: Response) => {
             }
         });
         await channel.save();
-        const updatedVendor = await VendorModel.findByIdAndUpdate(vendorId, { $set: { completed_step: 3 } });
+        const updatedVendor = await VendorModel.findByIdAndUpdate(vendorId, { $set: { completed_step: 3 } }, { new: true });
 
         return sendApiResponse(res, 200, "Shop connected successfully", { ...channel.toObject(), ...updatedVendor?.toObject() });
     } catch (error: any) {
