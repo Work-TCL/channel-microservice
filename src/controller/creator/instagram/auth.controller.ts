@@ -60,6 +60,7 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
             channelId: instagramUserData.id,
             handleName: instagramUserData.username,
             channelName: instagramUserData.name,
+            followers: instagramUserData.followers_count,
             channelType: "instagram",
             token: long_lived_token,
         });
@@ -109,14 +110,12 @@ const exchangeForLongLivedToken = async (accessToken: string) => {
  */
 const fetchInstagramUserData = async (accessToken: string) => {
     try {
-        console.log("accessToken", accessToken);
         const response = await axios.get(`https://graph.instagram.com/me`, {
             params: {
                 fields: "id,username,name, followers_count",
                 access_token: accessToken,
             },
         });
-        console.log("response", response.data);
 
         return response.data;
     } catch (error) {
