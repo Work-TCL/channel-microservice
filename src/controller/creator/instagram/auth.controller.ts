@@ -109,12 +109,14 @@ const exchangeForLongLivedToken = async (accessToken: string) => {
  */
 const fetchInstagramUserData = async (accessToken: string) => {
     try {
+        console.log("accessToken", accessToken);
         const response = await axios.get(`https://graph.instagram.com/me`, {
             params: {
-                fields: "id,username,name",
+                fields: "id,username,name, followers_count",
                 access_token: accessToken,
             },
         });
+        console.log("response", response.data);
 
         return response.data;
     } catch (error) {
