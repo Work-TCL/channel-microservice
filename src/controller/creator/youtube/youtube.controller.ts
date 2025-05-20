@@ -226,7 +226,8 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
 
     const channel = ytResponse.data.items[0];
     const channelId = channel.id;
-    const channelName = channel.snippet.title;
+    const title = channel.snippet.title;
+    const channelName = channel.snippet.customUrl;
     const follower = channel.statistics.subscriberCount;
     console.log(
       "YouTube Channel:",
@@ -259,7 +260,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
       creatorId,
       channelId,
       handleName: channelName,
-      channelName,
+      channelName: title,
       followers: follower,
       channelType: "youtube",
     });
