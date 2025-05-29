@@ -7,7 +7,7 @@ import { SHOPIFY_API_KEY, SHOPIFY_URL } from "../../config";
 export const connectShopifyStore = async (req: AuthRequest, res: Response) => {
   const { uniqueId, shopUrl } = req.body;
   const { _id: vendorId } = req.user;
-  
+
   try {
     if (!uniqueId || !shopUrl) {
       return sendApiResponse(res, 400, "uniqueId and shopUrl is required");
@@ -74,7 +74,7 @@ export const connectShopifyStore = async (req: AuthRequest, res: Response) => {
       await channel.save();
       const updatedVendor = await VendorModel.findByIdAndUpdate(
         vendorId,
-        { $set: { completed_step: 3 } },
+        { $set: { completed_step: 3, status: "PENDING_APPROVAL" } },
         { new: true }
       );
       return sendApiResponse(res, 200, "Shop connected successfully", {
@@ -106,7 +106,9 @@ export const getShopifyProductList = async (
       return sendApiResponse(res, 400, "Channel not found");
     }
 
-    const url = SHOPIFY_URL + `/crm/products?shop_url=${channel.channelConfig.domain}&page=${page}&limit=${limit}`;
+    const url =
+      SHOPIFY_URL +
+      `/crm/products?shop_url=${channel.channelConfig.domain}&page=${page}&limit=${limit}`;
     // const url =
     //   SHOPIFY_URL +
     //   `/crm/products?shop_url=quickstart-add36e33.myshopify.com&page=${page}&limit=${limit}`;
