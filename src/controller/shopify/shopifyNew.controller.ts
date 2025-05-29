@@ -1,6 +1,6 @@
 import { Response } from "express";
 import sendApiResponse from "../../common";
-import { ChannelModel, VendorModel } from "../../database/model";
+import { ChannelModel, ProductModel, VendorModel } from "../../database/model";
 import { AuthRequest } from "../../types/authRequest";
 import { SHOPIFY_API_KEY, SHOPIFY_URL } from "../../config";
 
@@ -102,6 +102,11 @@ export const getShopifyProductList = async (
       vendorId: vendorId,
     });
 
+    const vendorProductList = await ProductModel.find({
+      vendorId,
+      channelName: "shopify",
+    }).select("channelProductId");
+
     if (!channel) {
       return sendApiResponse(res, 400, "Channel not found");
     }
@@ -133,8 +138,17 @@ export const getShopifyProductList = async (
 
     const data = await response.json();
     if (data?.products?.length > 0) {
+      const channelProductIds = vendorProductList.map(
+        (item) => item.channelProductId
+      );
+      const result = data.products.map((item: any) => {
+        return {
+          ...item,
+          alreadyAdded: channelProductIds.includes(item.id.toString()),
+        };
+      });
       return sendApiResponse(res, 200, "Products fetched successfully", {
-        list: data.products,
+        list: result,
         count: data.pagination.totalProducts,
       });
     }
