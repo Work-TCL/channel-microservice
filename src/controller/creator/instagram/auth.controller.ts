@@ -89,6 +89,8 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
  */
 const exchangeForLongLivedToken = async (accessToken: string) => {
     try {
+        console.log("accessToken", accessToken);
+        console.log("INSTAGRAM_CLIENT_SECRET", INSTAGRAM_CLIENT_SECRET);
         const response = await axios.get(`https://graph.instagram.com/access_token`, {
             params: {
                 grant_type: "ig_exchange_token",
