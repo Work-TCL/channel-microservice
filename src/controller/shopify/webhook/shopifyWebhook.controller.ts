@@ -62,4 +62,15 @@ const attributedOrder = async (req: Request, res: Response) => {
   }
 };
 
-export { attributedOrder };
+
+const shopifyVisitEvent = async (req: Request, res: Response) => {
+  try {
+    // const data = { utmapp_link_id : "fekmkmfkemf" }
+    const data = req.body;
+    console.log("data", data);
+  } catch (error: any) {
+    console.error("Error in shopifyVisitEvent:", error.message || error);
+    return null;
+  }
+};
+export { attributedOrder, shopifyVisitEvent };
