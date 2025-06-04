@@ -1,11 +1,16 @@
 import { Request, Response } from "express";
 import sendApiResponse from "../../../common";
-import { CollaborationModel, OrderModel, ProductModel } from "../../../database/model";
+import {
+  CollaborationModel,
+  ImpressionModel,
+  OrderModel,
+  ProductModel,
+} from "../../../database/model";
 
 const attributedOrder = async (req: Request, res: Response) => {
   try {
     const data = req.body;
-    console.log("data",data)
+    console.log("data", data);
     // Extract order details from the webhook payload
     const orderId = data.order_data?.id;
     const orderAmount = parseFloat(data.order_data?.total_price || "0");
@@ -55,19 +60,34 @@ const attributedOrder = async (req: Request, res: Response) => {
     });
 
     console.log("Order stored successfully:", order);
-    return order
+    return order;
   } catch (error: any) {
     console.error("Error in attributedOrder:", error.message || error);
-    return null
+    return null;
   }
 };
-
 
 const shopifyVisitEvent = async (req: Request, res: Response) => {
   try {
     // const data = { utmapp_link_id : "fekmkmfkemf" }
     const data = req.body;
-    console.log("data", data);
+    console.log("visit", data);
+    
+    const collaboration = await CollaborationModel.findOne({
+      utmLinkIdentifier: data.utmapp_link_id,
+    });
+    if (!collaboration) {
+      throw new Error(
+        `Collaboration with ID ${data.utmapp_link_id} not found.`
+      );
+    }
+    const newImpression = await ImpressionModel.create({
+      collaborationId: collaboration._id,
+      impression: "VISIT",
+      channel: "SHOPIFY",
+    });
+
+    return newImpression;
   } catch (error: any) {
     console.error("Error in shopifyVisitEvent:", error.message || error);
     return null;

@@ -11,6 +11,7 @@ import AccountSchema from "../../../../shared-models/src/models/account";
 import ChannelSchema from "../../../../shared-models/src/models/channel";
 import CollaborationSchema from "../../../../shared-models/src/models/collaboration";
 import OrderSchema from "../../../../shared-models/src/models/order";
+import ImpressionSchema from "../../../../shared-models/src/models/impression";
 
 const ProductModel = mongoose.model("Product", ProductSchema);
 const CategoryModel = mongoose.model("Category", CategorySchema);
@@ -30,6 +31,7 @@ const AccountModel = mongoose.model("Account", AccountSchema);
 const ChannelModel = mongoose.model("Channel", ChannelSchema);
 const CollaborationModel = mongoose.model("Collaboration", CollaborationSchema);
 const OrderModel = mongoose.model("Order", OrderSchema);
+const ImpressionModel = mongoose.model("Impression", ImpressionSchema);
 
 export {
   ProductModel,
@@ -43,5 +45,6 @@ export {
   AccountModel,
   ChannelModel,
   CollaborationModel,
-  OrderModel
+  OrderModel,
+  ImpressionModel
 };
