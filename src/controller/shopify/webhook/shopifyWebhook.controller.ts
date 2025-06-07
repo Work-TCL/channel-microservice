@@ -48,6 +48,11 @@ const attributedOrder = async (req: Request, res: Response) => {
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
     }
 
+    const calculatedCommission =
+      collaboration.commissionType === "PERCENTAGE"
+        ? orderAmount * (collaboration.commissionValue / 100)
+        : collaboration.commissionValue;
+
     // Create and store the order in our application database
     const order = await OrderModel.create({
       orderId,
@@ -57,6 +62,8 @@ const attributedOrder = async (req: Request, res: Response) => {
       channel,
       productId: product._id,
       channelProductId: product.channelProductId,
+      commission: calculatedCommission,
+      orderStatus: "PENDING",
     });
 
     console.log("Order stored successfully:", order);
@@ -72,7 +79,7 @@ const shopifyVisitEvent = async (req: Request, res: Response) => {
     // const data = { utmapp_link_id : "fekmkmfkemf" }
     const data = req.body;
     console.log("visit", data);
-    
+
     const collaboration = await CollaborationModel.findOne({
       utmLinkIdentifier: data.utmapp_link_id,
     });
