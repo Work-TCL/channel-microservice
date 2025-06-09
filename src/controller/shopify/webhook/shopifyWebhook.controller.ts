@@ -1,16 +1,18 @@
 import { Request, Response } from "express";
-import sendApiResponse from "../../../common";
 import {
   CollaborationModel,
+  CreatorModel,
   ImpressionModel,
   OrderModel,
   ProductModel,
+  VendorModel,
 } from "../../../database/model";
+import { addCommotion, deductCommotion } from "../../../common/wallet/walletTransaction";
 
 const attributedOrder = async (req: Request, res: Response) => {
   try {
     const data = req.body;
-    console.log("data", data);
+    console.log("order data", data);
     // Extract order details from the webhook payload
     const orderId = data.order_data?.id;
     const orderAmount = parseFloat(data.order_data?.total_price || "0");
@@ -28,13 +30,6 @@ const attributedOrder = async (req: Request, res: Response) => {
     }
     const collaborationId = affiliateId.split("-")[1];
     const channel = "shopify";
-
-    console.log("Received Shopify webhook data:", {
-      orderId,
-      orderAmount,
-      orderDate,
-      collaborationId,
-    });
 
     // Find the collaboration
     const collaboration = await CollaborationModel.findById(collaborationId);
@@ -67,12 +62,33 @@ const attributedOrder = async (req: Request, res: Response) => {
     });
 
     console.log("Order stored successfully:", order);
+
+    const vendor: any = await VendorModel.findById(collaboration.vendorId);
+    const creator: any = await CreatorModel.findById(collaboration.creatorId);
+
+    await deductCommotion(vendor?.accountId.toString(), calculatedCommission);
+    await addCommotion(creator?.accountId.toString(), calculatedCommission, true);
+
     return order;
   } catch (error: any) {
     console.error("Error in attributedOrder:", error.message || error);
     return null;
   }
 };
+
+const shopifyOrderStatus = async (req: Request, res: Response) => {
+  try {
+    const data = req.body;
+    console.log("order status data", data);
+    if (data.event_type === "order_delivered") {
+      console.log("order delivered");
+    }else if(data.event_type === "order_cancelled" || data.event_type === "order_refunded"){
+      console.log("order cancelled or refunded");
+    }
+  } catch (error: any) {
+    console.error("Error in shopifyOrderStatus:", error.message || error);
+  }
+}
 
 const shopifyVisitEvent = async (req: Request, res: Response) => {
   try {
@@ -100,4 +116,4 @@ const shopifyVisitEvent = async (req: Request, res: Response) => {
     return null;
   }
 };
-export { attributedOrder, shopifyVisitEvent };
+export { attributedOrder, shopifyVisitEvent, shopifyOrderStatus };

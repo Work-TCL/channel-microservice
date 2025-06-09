@@ -12,6 +12,7 @@ import ChannelSchema from "../../../../shared-models/src/models/channel";
 import CollaborationSchema from "../../../../shared-models/src/models/collaboration";
 import OrderSchema from "../../../../shared-models/src/models/order";
 import ImpressionSchema from "../../../../shared-models/src/models/impression";
+import WalletSchema from "../../../../shared-models/src/models/wallet";
 
 const ProductModel = mongoose.model("Product", ProductSchema);
 const CategoryModel = mongoose.model("Category", CategorySchema);
@@ -32,6 +33,7 @@ const ChannelModel = mongoose.model("Channel", ChannelSchema);
 const CollaborationModel = mongoose.model("Collaboration", CollaborationSchema);
 const OrderModel = mongoose.model("Order", OrderSchema);
 const ImpressionModel = mongoose.model("Impression", ImpressionSchema);
+const WalletModel = mongoose.model("Wallet", WalletSchema);
 
 export {
   ProductModel,
@@ -46,5 +48,6 @@ export {
   ChannelModel,
   CollaborationModel,
   OrderModel,
-  ImpressionModel
+  ImpressionModel,
+  WalletModel,
 };
