@@ -90,7 +90,7 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
     if (data.event_type === "order_delivered") {
       const deliveredOrders = data?.all_data?.fulfillments.map(
         (fulfillment: any) => ({
-          orderId: fulfillment?.id,
+          orderId: fulfillment,
         })
       );
       console.log("order delivered", deliveredOrders);
@@ -98,7 +98,7 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
       console.log("order cancelled ", data?.data?.id);
     } else if (data.event_type === "order_refunded") {
       const refundOrders = data?.all_data?.transactions?.map((refund: any) => ({
-        orderId: refund,
+        orderId: refund?.order_id,
       }));
       console.log("order refunded ", refundOrders);
     }
