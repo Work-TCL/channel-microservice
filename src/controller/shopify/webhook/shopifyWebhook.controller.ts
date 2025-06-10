@@ -98,7 +98,7 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
       console.log("order cancelled ", data?.data?.id);
     } else if (data.event_type === "order_refunded") {
       const refundOrders = data?.all_data?.refund_line_items?.map((refund: any) => ({
-        orderId: refund?.id,
+        orderId: refund,
       }));
       console.log("order refunded ", refundOrders);
     }
