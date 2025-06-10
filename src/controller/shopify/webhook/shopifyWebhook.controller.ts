@@ -7,7 +7,10 @@ import {
   ProductModel,
   VendorModel,
 } from "../../../database/model";
-import { addCommotion, deductCommotion } from "../../../common/wallet/walletTransaction";
+import {
+  addCommotion,
+  deductCommotion,
+} from "../../../common/wallet/walletTransaction";
 
 const attributedOrder = async (req: Request, res: Response) => {
   try {
@@ -67,7 +70,11 @@ const attributedOrder = async (req: Request, res: Response) => {
     const creator: any = await CreatorModel.findById(collaboration.creatorId);
 
     await deductCommotion(vendor?.accountId.toString(), calculatedCommission);
-    await addCommotion(creator?.accountId.toString(), calculatedCommission, true);
+    await addCommotion(
+      creator?.accountId.toString(),
+      calculatedCommission,
+      true
+    );
 
     return order;
   } catch (error: any) {
@@ -81,14 +88,24 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
     const data = req.body;
     console.log("order status data", data);
     if (data.event_type === "order_delivered") {
-      console.log("order delivered", data?.all_data?.fulfillments);
-    }else if(data.event_type === "order_cancelled" || data.event_type === "order_refunded"){
-      console.log("order cancelled or refunded");
+      const deliveredOrders = data?.all_data?.fulfillments.map(
+        (fulfillment: any) => ({
+          orderId: fulfillment?.id,
+        })
+      );
+      console.log("order delivered", deliveredOrders);
+    } else if (data.event_type === "order_cancelled") {
+      console.log("order cancelled ", data?.data?.id);
+    } else if (data.event_type === "order_refunded") {
+      const refundOrders = data?.all_data?.refundData?.map((refund: any) => ({
+        orderId: refund?.id,
+      }));
+      console.log("order refunded ", refundOrders);
     }
   } catch (error: any) {
     console.error("Error in shopifyOrderStatus:", error.message || error);
   }
-}
+};
 
 const shopifyVisitEvent = async (req: Request, res: Response) => {
   try {
