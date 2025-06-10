@@ -81,7 +81,7 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
     const data = req.body;
     console.log("order status data", data);
     if (data.event_type === "order_delivered") {
-      console.log("order delivered");
+      console.log("order delivered", data?.fulfillments);
     }else if(data.event_type === "order_cancelled" || data.event_type === "order_refunded"){
       console.log("order cancelled or refunded");
     }
