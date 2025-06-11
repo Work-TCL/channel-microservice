@@ -15,7 +15,7 @@ import {
 const attributedOrder = async (req: Request, res: Response) => {
   try {
     const data = req.body;
-    console.log("order data", data);
+    // console.log("order data", data);
     // Extract order details from the webhook payload
     const orderId = data.order_data?.id;
     const orderAmount = parseFloat(data.order_data?.total_price || "0");
@@ -86,26 +86,65 @@ const attributedOrder = async (req: Request, res: Response) => {
 const shopifyOrderStatus = async (req: Request, res: Response) => {
   try {
     const data = req.body;
-    console.log("order status data", data);
+
+    // 👉 Handle order delivered event
     if (data.event_type === "order_delivered") {
+      // Extract all delivered order IDs from the fulfillments array
       const deliveredOrders = data?.all_data?.fulfillments.map(
-        (fulfillment: any) => ({
-          orderId: fulfillment,
-        })
-      );
-      console.log("order delivered", deliveredOrders);
+        (fulfillment: any) => fulfillment?.orderId?.order_id
+      ).filter(Boolean); // Ensure only valid IDs are included
+
+      if (deliveredOrders?.length) {
+        // ✅ Update all matching orders to status DELIVERED
+        const result = await OrderModel.updateMany(
+          { orderId: { $in: deliveredOrders } },
+          { $set: { orderStatus: "DELIVERED" } }
+        );
+        console.log("Delivered orders updated:", result);
+      }
+
+    // 👉 Handle order cancelled event
     } else if (data.event_type === "order_cancelled") {
-      console.log("order cancelled ", data?.data?.id);
+      // Extract the cancelled order ID
+      const cancelledOrderId = data?.data?.id;
+
+      if (cancelledOrderId) {
+        // ✅ Update the specific order to status CANCELLED
+        const result = await OrderModel.findOneAndUpdate(
+          { orderId: cancelledOrderId },
+          { $set: { orderStatus: "CANCELLED" } },
+          { new: true } // Return updated document
+        );
+        console.log("Order cancelled:", result);
+      }
+
+    // 👉 Handle order refunded event
     } else if (data.event_type === "order_refunded") {
-      const refundOrders = data?.all_data?.transactions?.map((refund: any) => ({
-        orderId: refund?.order_id,
-      }));
-      console.log("order refunded ", refundOrders);
+      // Extract all refunded order IDs from the transactions array
+      const refundedOrders = data?.all_data?.transactions?.map(
+        (transaction: any) => transaction?.order_id
+      ).filter(Boolean);
+
+      if (refundedOrders?.length) {
+        // ✅ Update all matching orders to status RETURNED
+        const result = await OrderModel.updateMany(
+          { orderId: { $in: refundedOrders } },
+          { $set: { orderStatus: "RETURNED" } }
+        );
+        console.log("Refunded orders updated:", result);
+      }
     }
+
+    // Respond with success regardless of event type
+    res.status(200).json({ success: true });
+
   } catch (error: any) {
+    // 🔥 Catch any runtime errors and return 500
     console.error("Error in shopifyOrderStatus:", error.message || error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 const shopifyVisitEvent = async (req: Request, res: Response) => {
   try {
@@ -133,4 +172,5 @@ const shopifyVisitEvent = async (req: Request, res: Response) => {
     return null;
   }
 };
+
 export { attributedOrder, shopifyVisitEvent, shopifyOrderStatus };
