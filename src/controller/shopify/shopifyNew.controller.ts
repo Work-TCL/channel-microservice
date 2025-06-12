@@ -72,9 +72,21 @@ export const connectShopifyStore = async (req: AuthRequest, res: Response) => {
         },
       });
       await channel.save();
+      const vendor = await VendorModel.findById(vendorId);
+
+      if (!vendor) {
+        throw new Error("Vendor not found");
+      }
+
+      const updateFields: any = { completed_step: 3 };
+
+      if (vendor.status === "IN_PROGRESS") {
+        updateFields.status = "PENDING_APPROVAL";
+      }
+
       const updatedVendor = await VendorModel.findByIdAndUpdate(
         vendorId,
-        { $set: { completed_step: 3, status: "PENDING_APPROVAL" } },
+        { $set: updateFields },
         { new: true }
       );
       return sendApiResponse(res, 200, "Shop connected successfully", {

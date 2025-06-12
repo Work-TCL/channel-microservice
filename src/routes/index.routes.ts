@@ -4,10 +4,13 @@ import { creatorRouter } from './creator/creator.routes';
 import { vendorChannelRouter } from './vendor/channel.routes';
 import { salesRouter } from './sales.routes';
 import { shopifyWebhookRouter } from './webhooks/shopify/shopifyWebhook.routes';
+import { wordpressRouter } from './wordpress.routes';
 
 const router = Router()
 
 router.use('/shopify', shopifyRouter)
+
+router.use('/wordpress', wordpressRouter)
 
 router.use('/creator', creatorRouter)
 
