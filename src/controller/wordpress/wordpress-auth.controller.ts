@@ -69,6 +69,7 @@ export const authorizeWordpress = async (req: AuthRequest, res: Response) => {
         vendorId: vendorId,
         channelConfig: {
           domain: shopUrl,
+          token: data.token,
         },
       });
       await channel.save();
