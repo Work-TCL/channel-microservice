@@ -112,6 +112,7 @@ export const getShopifyProductList = async (
 
     const channel = await ChannelModel.findOne({
       vendorId: vendorId,
+      channelType: "shopify",
     });
 
     const vendorProductList = await ProductModel.find({
@@ -185,16 +186,17 @@ export const getShopifyProductDetails = async (
   try {
     const channel = await ChannelModel.findOne({
       vendorId: vendorId,
+      channelType: "shopify",
     });
 
     if (!channel) {
       return sendApiResponse(res, 400, "Channel not found");
     }
 
-    const url =
-      SHOPIFY_URL +
-      `/crm/products/${productId}?shop_url=quickstart-add36e33.myshopify.com`;
-    // const url = SHOPIFY_URL + `/crm/products/${productId}?shop_url=${channel.channelConfig.domain}`;
+    // const url =
+      // SHOPIFY_URL +
+      // `/crm/products/${productId}?shop_url=quickstart-add36e33.myshopify.com`;
+    const url = SHOPIFY_URL + `/crm/products/${productId}?shop_url=${channel.channelConfig.domain}`;
     const headers: HeadersInit = {
       "Content-Type": "application/json",
     };
