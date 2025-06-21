@@ -7,10 +7,6 @@ import {
   ProductModel,
   VendorModel,
 } from "../../../database/model";
-import {
-  addCommotion,
-  deductCommotion,
-} from "../../../common/wallet/walletTransaction";
 
 const attributedOrder = async (req: Request, res: Response) => {
   try {
@@ -69,12 +65,12 @@ const attributedOrder = async (req: Request, res: Response) => {
     const vendor: any = await VendorModel.findById(collaboration.vendorId);
     const creator: any = await CreatorModel.findById(collaboration.creatorId);
 
-    await deductCommotion(vendor?.accountId.toString(), calculatedCommission);
-    await addCommotion(
-      creator?.accountId.toString(),
-      calculatedCommission,
-      true
-    );
+    // await deductCommotion(vendor?.accountId.toString(), calculatedCommission);
+    // await addCommotion(
+    //   creator?.accountId.toString(),
+    //   calculatedCommission,
+    //   true
+    // );
 
     return order;
   } catch (error: any) {
