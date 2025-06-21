@@ -152,11 +152,11 @@ export const wordpressVisitEvent = async (req: Request, res: Response) => {
     console.log("visit", data);
 
     const collaboration = await CollaborationModel.findOne({
-      utmLinkIdentifier: data.utmapp_link_id,
+      utmLinkIdentifier: data.utm_link_id,
     });
     if (!collaboration) {
       throw new Error(
-        `Collaboration with ID ${data.utmapp_link_id} not found.`
+        `Collaboration with ID ${data.utm_link_id} not found.`
       );
     }
     const newImpression = await ImpressionModel.create({
