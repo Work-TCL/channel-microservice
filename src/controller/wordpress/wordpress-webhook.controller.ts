@@ -87,6 +87,7 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
   try {
     const data = req.body;
 
+    console.log("orderId", data);
     // 👉 Handle order delivered event
     if (data.event_type === "order_delivered") {
       if (data.orderId) {
