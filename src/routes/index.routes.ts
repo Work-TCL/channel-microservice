@@ -5,6 +5,7 @@ import { vendorChannelRouter } from './vendor/channel.routes';
 import { salesRouter } from './sales.routes';
 import { shopifyWebhookRouter } from './webhooks/shopify/shopifyWebhook.routes';
 import { wordpressRouter } from './wordpress.routes';
+import { wordpressWebhookRouter } from './webhooks/wordpress/wordpressWebhook.routes';
 
 const router = Router()
 
@@ -19,5 +20,7 @@ router.use('/vendor/channel', vendorChannelRouter)
 router.use('/sales', salesRouter)
 
 router.use('/', shopifyWebhookRouter)
+
+router.use('/', wordpressWebhookRouter)
 
 export { router }
