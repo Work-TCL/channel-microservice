@@ -10,15 +10,15 @@ export const wordPressWebhook = async (req: Request, res: Response) => {
   try {
     const data = req.body;
     if (data) {
-      // console.log("order data", data);
+      console.log("order data", data);
       // Extract order details from the webhook payload
-      const orderId = data.order_id;
+      const orderId = data.orderId;
       const orderAmount = parseFloat(data.totalAmount || "0");
       const orderDate = data?.eventTimestamp;
 
       // Validate required fields
       if (!orderId || !orderAmount || !orderDate) {
-        throw new Error("Missing required order data from Shopify webhook.");
+        throw new Error("Missing required order data from wordpress webhook.");
       }
 
       // Extract collaborationId from affiliateId
@@ -78,7 +78,7 @@ export const wordPressWebhook = async (req: Request, res: Response) => {
       return null;
     }
   } catch (e: any) {
-    console.error("Error in attributedOrder:", e.message || e);
+    console.error("Error in wordpressattributedOrder:", e.message || e);
     return null;
   }
 };
