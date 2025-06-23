@@ -159,7 +159,7 @@ const shopifyVisitEvent = async (req: Request, res: Response) => {
     const newImpression = await ImpressionModel.create({
       collaborationId: collaboration._id,
       impression: "VISIT",
-      channel: "SHOPIFY",
+      channel: "shopify",
     });
 
     return newImpression;
