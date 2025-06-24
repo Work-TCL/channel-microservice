@@ -45,13 +45,17 @@ const attributedOrder = async (req: Request, res: Response) => {
     await session.startTransaction(); // Begin MongoDB transaction
 
     // Find the related collaboration using the extracted ID
-    const collaboration = await CollaborationModel.findById(collaborationId).session(session);
+    const collaboration = await CollaborationModel.findById(
+      collaborationId
+    ).session(session);
     if (!collaboration) {
       throw new Error(`Collaboration with ID ${collaborationId} not found.`);
     }
 
     // Find the associated product from the collaboration
-    const product = await ProductModel.findById(collaboration.productId).session(session);
+    const product = await ProductModel.findById(
+      collaboration.productId
+    ).session(session);
     if (!product) {
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
     }
@@ -81,17 +85,29 @@ const attributedOrder = async (req: Request, res: Response) => {
     );
 
     // Fetch vendor and creator accounts for wallet updates
-    const vendor = await VendorModel.findById(collaboration.vendorId).select("accountId").session(session);
-    const creator = await CreatorModel.findById(collaboration.creatorId).select("accountId").session(session);
+    const vendor = await VendorModel.findById(collaboration.vendorId)
+      .select("accountId")
+      .session(session);
+    const creator = await CreatorModel.findById(collaboration.creatorId)
+      .select("accountId")
+      .session(session);
 
     // Deduct commission from vendor's main balance into blocked
     if (vendor && calculatedCommission > 0) {
-      await releaseMainToBlocked(vendor.accountId.toString(), calculatedCommission, session);
+      await releaseMainToBlocked(
+        vendor.accountId.toString(),
+        calculatedCommission,
+        session
+      );
     }
 
     // Block commission into creator's wallet
     if (creator && calculatedCommission > 0) {
-      await blockCommission(creator.accountId.toString(), calculatedCommission, session);
+      await blockCommission(
+        creator.accountId.toString(),
+        calculatedCommission,
+        session
+      );
     }
 
     await session.commitTransaction(); // Commit DB changes
@@ -108,10 +124,9 @@ const attributedOrder = async (req: Request, res: Response) => {
   }
 };
 
-
 const shopifyOrderStatus = async (req: Request, res: Response) => {
   const session = await mongoose.startSession();
-  console.log("hello")
+  console.log("hello");
 
   try {
     const data = req.body;
@@ -119,11 +134,11 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
 
     // 👉 Handle "order_delivered" event
     if (data.event_type === "order_delivered") {
-      console.log("hello->",data)
+      console.log("hello->", data?.all_data?.fulfillments);
       const deliveredOrders = data?.all_data?.fulfillments
         .map((fulfillment: any) => fulfillment?.orderId?.order_id)
         .filter(Boolean);
-
+      console.log("deliveredOrders", deliveredOrders.length);
       if (deliveredOrders?.length) {
         // ✅ Update status for all delivered orders
         await OrderModel.updateMany(
@@ -134,22 +149,38 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
 
         // 🔄 Process commission release for each delivered order
         for (const orderId of deliveredOrders) {
-          const order: any = await OrderModel.findOne({ orderId }).session(session);
+          const order: any = await OrderModel.findOne({ orderId }).session(
+            session
+          );
           if (!order) continue;
 
-          const collaboration = await CollaborationModel.findById(order.collaborationId).session(session);
+          const collaboration = await CollaborationModel.findById(
+            order.collaborationId
+          ).session(session);
           if (!collaboration) continue;
 
-          const vendor = await VendorModel.findById(collaboration.vendorId).select("accountId").session(session);
-          const creator = await CreatorModel.findById(collaboration.creatorId).select("accountId").session(session);
+          const vendor = await VendorModel.findById(collaboration.vendorId)
+            .select("accountId")
+            .session(session);
+          const creator = await CreatorModel.findById(collaboration.creatorId)
+            .select("accountId")
+            .session(session);
 
           if (!vendor?.accountId || !creator?.accountId) {
             throw new Error("Missing account ID for vendor or creator");
           }
 
           if (order.commission > 0) {
-            await removeBlockedCommission(vendor.accountId.toString(), order.commission, session);
-            await releaseBlockedToMain(creator.accountId.toString(), order.commission, session);
+            await removeBlockedCommission(
+              vendor.accountId.toString(),
+              order.commission,
+              session
+            );
+            await releaseBlockedToMain(
+              creator.accountId.toString(),
+              order.commission,
+              session
+            );
           }
         }
       }
@@ -160,7 +191,9 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
       const cancelledOrderId = data?.data?.id;
 
       if (cancelledOrderId) {
-        const order: any = await OrderModel.findOne({ orderId: cancelledOrderId }).session(session);
+        const order: any = await OrderModel.findOne({
+          orderId: cancelledOrderId,
+        }).session(session);
         if (!order) throw new Error("Order not found");
 
         await OrderModel.updateOne(
@@ -169,17 +202,31 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
           { session }
         );
 
-        const collaboration = await CollaborationModel.findById(order.collaborationId).session(session);
-        const vendor = await VendorModel.findById(collaboration?.vendorId).select("accountId").session(session);
-        const creator = await CreatorModel.findById(collaboration?.creatorId).select("accountId").session(session);
+        const collaboration = await CollaborationModel.findById(
+          order.collaborationId
+        ).session(session);
+        const vendor = await VendorModel.findById(collaboration?.vendorId)
+          .select("accountId")
+          .session(session);
+        const creator = await CreatorModel.findById(collaboration?.creatorId)
+          .select("accountId")
+          .session(session);
 
         if (!vendor?.accountId || !creator?.accountId) {
           throw new Error("Missing account ID for vendor or creator");
         }
 
         if (order.commission > 0) {
-          await releaseBlockedToMain(vendor.accountId.toString(), order.commission, session);
-          await removeBlockedCommission(creator.accountId.toString(), order.commission, session);
+          await releaseBlockedToMain(
+            vendor.accountId.toString(),
+            order.commission,
+            session
+          );
+          await removeBlockedCommission(
+            creator.accountId.toString(),
+            order.commission,
+            session
+          );
         }
       }
     }
@@ -199,22 +246,38 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
 
         // 🔄 Process commission reversal for each refunded order
         for (const orderId of refundedOrders) {
-          const order: any = await OrderModel.findOne({ orderId }).session(session);
+          const order: any = await OrderModel.findOne({ orderId }).session(
+            session
+          );
           if (!order) continue;
 
-          const collaboration = await CollaborationModel.findById(order.collaborationId).session(session);
+          const collaboration = await CollaborationModel.findById(
+            order.collaborationId
+          ).session(session);
           if (!collaboration) continue;
 
-          const vendor = await VendorModel.findById(collaboration.vendorId).select("accountId").session(session);
-          const creator = await CreatorModel.findById(collaboration.creatorId).select("accountId").session(session);
+          const vendor = await VendorModel.findById(collaboration.vendorId)
+            .select("accountId")
+            .session(session);
+          const creator = await CreatorModel.findById(collaboration.creatorId)
+            .select("accountId")
+            .session(session);
 
           if (!vendor?.accountId || !creator?.accountId) {
             throw new Error("Missing account ID for vendor or creator");
           }
 
           if (order.commission > 0) {
-            await releaseBlockedToMain(vendor.accountId.toString(), order.commission, session);
-            await removeBlockedCommission(creator.accountId.toString(), order.commission, session);
+            await releaseBlockedToMain(
+              vendor.accountId.toString(),
+              order.commission,
+              session
+            );
+            await removeBlockedCommission(
+              creator.accountId.toString(),
+              order.commission,
+              session
+            );
           }
         }
       }
@@ -232,7 +295,6 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 const shopifyVisitEvent = async (req: Request, res: Response) => {
   try {
