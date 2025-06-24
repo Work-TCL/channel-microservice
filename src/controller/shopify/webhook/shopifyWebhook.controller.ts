@@ -126,7 +126,6 @@ const attributedOrder = async (req: Request, res: Response) => {
 
 const shopifyOrderStatus = async (req: Request, res: Response) => {
   const session = await mongoose.startSession();
-  console.log("hello");
 
   try {
     const data = req.body;
@@ -134,11 +133,10 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
 
     // 👉 Handle "order_delivered" event
     if (data.event_type === "order_delivered") {
-      console.log("hello->", data?.all_data?.fulfillments);
       const deliveredOrders = data?.all_data?.fulfillments
-        .map((fulfillment: any) => fulfillment?.orderId?.order_id)
+        .map((fulfillment: any) => fulfillment?.order_id)
         .filter(Boolean);
-      console.log("deliveredOrders", deliveredOrders.length);
+      
       if (deliveredOrders?.length) {
         // ✅ Update status for all delivered orders
         await OrderModel.updateMany(
