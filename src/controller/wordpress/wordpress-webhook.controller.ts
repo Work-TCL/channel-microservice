@@ -7,7 +7,12 @@ import {
   ProductModel,
   VendorModel,
 } from "../../database/model";
-import { blockCommission, releaseBlockedToMain, releaseMainToBlocked, removeBlockedCommission } from "../../common/wallet/walletTransaction";
+import {
+  blockCommission,
+  releaseBlockedToMain,
+  releaseMainToBlocked,
+  removeBlockedCommission,
+} from "../../common/wallet/walletTransaction";
 import mongoose from "mongoose";
 
 export const wordPressOrderWebhook = async (req: Request, res: Response) => {
@@ -37,12 +42,16 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
     session.startTransaction();
 
     // Validate collaboration
-    const collaboration = await CollaborationModel.findById(collaborationId).session(session);
+    const collaboration = await CollaborationModel.findById(
+      collaborationId
+    ).session(session);
     if (!collaboration) {
       throw new Error(`Collaboration with ID ${collaborationId} not found.`);
     }
 
-    const product = await ProductModel.findById(collaboration.productId).session(session);
+    const product = await ProductModel.findById(
+      collaboration.productId
+    ).session(session);
     if (!product) {
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
     }
@@ -55,30 +64,45 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
 
     // Save order
     const order = await OrderModel.create(
-      [{
-        orderId,
-        orderAmount,
-        orderDate,
-        collaborationId,
-        channel,
-        productId: product._id,
-        channelProductId: product.channelProductId,
-        commission: calculatedCommission,
-        orderStatus: "PENDING",
-      }],
+      [
+        {
+          orderId,
+          orderAmount,
+          orderDate,
+          collaborationId,
+          channel,
+          productId: product._id,
+          channelProductId: product.channelProductId,
+          commission: calculatedCommission,
+          orderStatus: "PENDING",
+        },
+      ],
       { session }
     );
 
     // Handle wallet updates
-    const vendor = await VendorModel.findById(collaboration.vendorId).select("accountId").session(session);
-    const creator = await CreatorModel.findById(collaboration.creatorId).select("accountId").session(session);
+    const vendor = await VendorModel.findById(collaboration.vendorId)
+      .select("accountId")
+      .session(session);
+    const creator = await CreatorModel.findById(collaboration.creatorId)
+      .select("accountId")
+      .session(session);
 
     if (vendor && calculatedCommission > 0) {
-      await releaseMainToBlocked(vendor.accountId.toString(), calculatedCommission, session);
+      await releaseMainToBlocked(
+        vendor.accountId.toString(),
+        vendor._id.toString(),
+        calculatedCommission,
+        session
+      );
     }
 
     if (creator && calculatedCommission > 0) {
-      await blockCommission(creator.accountId.toString(), calculatedCommission, session);
+      await blockCommission(
+        creator.accountId.toString(),
+        calculatedCommission,
+        session
+      );
     }
 
     await session.commitTransaction();
@@ -96,7 +120,6 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
   }
 };
 
-
 export const wordpressOrderStatus = async (req: Request, res: Response) => {
   const session = await mongoose.startSession();
 
@@ -110,14 +133,20 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
     session.startTransaction();
 
     // Validate collaboration
-    const collaboration = await CollaborationModel.findById(crmAffiliateId).session(session);
+    const collaboration = await CollaborationModel.findById(
+      crmAffiliateId
+    ).session(session);
     if (!collaboration) {
       throw new Error(`Collaboration with ID ${crmAffiliateId} not found.`);
     }
 
     // Fetch account IDs for wallet transactions
-    const vendor = await VendorModel.findById(collaboration.vendorId).select("accountId").session(session);
-    const creator = await CreatorModel.findById(collaboration.creatorId).select("accountId").session(session);
+    const vendor = await VendorModel.findById(collaboration.vendorId)
+      .select("accountId")
+      .session(session);
+    const creator = await CreatorModel.findById(collaboration.creatorId)
+      .select("accountId")
+      .session(session);
 
     if (!vendor?.accountId || !creator?.accountId) {
       throw new Error("Missing account ID for vendor or creator");
@@ -147,7 +176,10 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
         if (event_type === "order_delivered") {
           await removeBlockedCommission(vendorId, result.commission, session);
           await releaseBlockedToMain(creatorId, result.commission, session);
-        } else if (event_type === "order_cancelled" || event_type === "order_refunded") {
+        } else if (
+          event_type === "order_cancelled" ||
+          event_type === "order_refunded"
+        ) {
           await releaseBlockedToMain(vendorId, result.commission, session);
           await removeBlockedCommission(creatorId, result.commission, session);
         }
@@ -167,7 +199,6 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
   }
 };
 
-
 export const wordpressVisitEvent = async (req: Request, res: Response) => {
   try {
     // const data = { utmapp_link_id : "fekmkmfkemf" }
@@ -178,9 +209,7 @@ export const wordpressVisitEvent = async (req: Request, res: Response) => {
       utmLinkIdentifier: data.utm_link_id,
     });
     if (!collaboration) {
-      throw new Error(
-        `Collaboration with ID ${data.utm_link_id} not found.`
-      );
+      throw new Error(`Collaboration with ID ${data.utm_link_id} not found.`);
     }
     const newImpression = await ImpressionModel.create({
       collaborationId: collaboration._id,

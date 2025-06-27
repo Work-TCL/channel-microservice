@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { WalletModel } from "../../database/model";
+import { CollaborationModel, ProductModel, WalletModel } from "../../database/model";
 
 // ✅ Ensure wallet exists (create if not)
 export const getOrCreateWallet = async (
@@ -24,7 +24,7 @@ export const blockCommission = async (
 
   const wallet = await getOrCreateWallet(accountId, session);
   wallet.blockedBalance += amount;
-  await wallet.save({session});
+  await wallet.save({ session });
   return wallet;
 };
 
@@ -43,7 +43,7 @@ export const deductFromWallet = async (
   }
 
   wallet.balance -= amount;
-  await wallet.save({session});
+  await wallet.save({ session });
   return wallet;
 };
 
@@ -60,7 +60,7 @@ export const removeBlockedCommission = async (
     throw new Error("Insufficient blocked balance");
 
   wallet.blockedBalance -= amount;
-  await wallet.save({session});
+  await wallet.save({ session });
   return wallet;
 };
 
@@ -78,20 +78,29 @@ export const releaseBlockedToMain = async (
 
   wallet.blockedBalance -= amount;
   wallet.balance += amount;
-  await wallet.save({session});
+  await wallet.save({ session });
   return wallet;
 };
 
-// ✅ 5. Transfer main commission → blocked (on cancel/refund)
+// ✅ 5. Transfer main commission → blocked for vendor while order comes
 export const releaseMainToBlocked = async (
   accountId: string,
+  vendorId: string,
   amount: number,
-  session: mongoose.ClientSession | null = null
+  session?: mongoose.ClientSession
 ) => {
   if (amount <= 0) throw new Error("Amount must be positive");
 
   const wallet = await getOrCreateWallet(accountId, session);
-  if (wallet.balance < amount) throw new Error("Insufficient balance");
+  if (wallet.balance < amount) {
+    // pause collaborations
+    await CollaborationModel.updateMany(
+      { vendorId: vendorId, collaborationStatus: "ACTIVE" },
+      { $set: { collaborationStatus: "PAUSED" } },
+      { session }
+    );
+    throw new Error("Insufficient balance");
+  }
 
   wallet.balance -= amount;
   wallet.blockedBalance += amount;

@@ -96,6 +96,7 @@ const attributedOrder = async (req: Request, res: Response) => {
     if (vendor && calculatedCommission > 0) {
       await releaseMainToBlocked(
         vendor.accountId.toString(),
+        vendor._id.toString(),
         calculatedCommission,
         session
       );
