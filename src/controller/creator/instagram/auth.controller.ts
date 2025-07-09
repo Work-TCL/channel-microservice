@@ -118,6 +118,7 @@ const fetchInstagramUserData = async (accessToken: string) => {
                 access_token: accessToken,
             },
         });
+console.log("hello",response)
 
         return response.data;
     } catch (error) {
