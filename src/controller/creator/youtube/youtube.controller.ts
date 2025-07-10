@@ -186,7 +186,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
 
   if (!code || !creatorId) {
     return res.redirect(
-      `${FRONTEND_URL}/creator-registration?tab=1&message=Missing required parameters`
+      `${FRONTEND_URL}/creator-registration?tab=1&error=Missing required parameters`
     );
   }
 
@@ -240,7 +240,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
     const creator = await CreatorModel.findById(creatorId);
     if (!creator) {
       return res.redirect(
-        `${FRONTEND_URL}/creator-registration?tab=1&message=Creator not found`
+        `${FRONTEND_URL}/creator-registration?tab=1&error=Creator not found`
       );
     }
 
@@ -251,7 +251,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
     });
     if (existingChannel) {
       return res.redirect(
-        `${FRONTEND_URL}/creator-registration?tab=1&message=Channel already exists`
+        `${FRONTEND_URL}/creator-registration?tab=1&error=Channel already exists`
       );
     }
 
