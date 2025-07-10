@@ -59,7 +59,7 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
             creatorId,
             channelId: instagramUserData.id,
             handleName: instagramUserData.username,
-            channelName: instagramUserData.name,
+            channelName: instagramUserData.username,
             followers: instagramUserData.followers_count,
             channelType: "instagram",
             token: long_lived_token,
@@ -118,6 +118,7 @@ const fetchInstagramUserData = async (accessToken: string) => {
                 access_token: accessToken,
             },
         });
+console.log("hello",response)
 
         return response.data;
     } catch (error) {
