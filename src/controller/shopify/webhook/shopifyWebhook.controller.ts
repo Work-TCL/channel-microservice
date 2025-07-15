@@ -52,26 +52,46 @@ const attributedOrder = async (req: Request, res: Response) => {
       throw new Error(`Collaboration with ID ${collaborationId} not found.`);
     }
 
-    // Find the associated product from the collaboration
+    const collabProductIds = data.line_items?.map(
+      (item: any) => item.product_id
+    );
+
     const product = await ProductModel.findById(
       collaboration.productId
     ).session(session);
+
+    if (!collabProductIds.includes(product?.channelProductId)) {
+      // Find the associated product from the collaboration
+      throw new Error(`Product with ID ${collaboration.productId} not found.`);
+    }
+
     if (!product) {
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
     }
 
     // Calculate commission based on collaboration rules
+    const noOfItems = data.line_items?.filter(
+      (item: any) => item.product_id === product?.channelProductId
+    ).length;
+    const totalPrices = data.line_items?.filter(
+      (item: any) => item.product_id === product?.channelProductId
+    );
+    const totalAmount = totalPrices.reduce(
+      (acc: number, item: any) => acc + item.price,
+      0
+    );
+
     const calculatedCommission =
-      collaboration.commissionType === "PERCENTAGE"
-        ? orderAmount * (collaboration.commissionValue / 100)
-        : collaboration.commissionValue;
+      (collaboration.commissionType === "PERCENTAGE"
+        ? totalPrices[0] * (collaboration.commissionValue / 100)
+        : collaboration.commissionValue) * noOfItems;
 
     // Create and store the order in your database
     const [order] = await OrderModel.create(
       [
         {
           orderId,
-          orderAmount,
+          totalAmount,
           orderDate,
           collaborationId,
           channel,
@@ -137,7 +157,7 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
       const deliveredOrders = data?.all_data?.fulfillments
         .map((fulfillment: any) => fulfillment?.order_id)
         .filter(Boolean);
-      
+
       if (deliveredOrders?.length) {
         // ✅ Update status for all delivered orders
         await OrderModel.updateMany(
