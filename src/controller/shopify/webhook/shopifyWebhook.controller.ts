@@ -60,6 +60,7 @@ const attributedOrder = async (req: Request, res: Response) => {
       collaboration.productId
     ).session(session);
 
+    console.log("roduct?.channelProductId",roduct?.channelProductId, collabProductIds,data.line_items[0] )
     if (!collabProductIds.includes(product?.channelProductId)) {
       // Find the associated product from the collaboration
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
@@ -81,6 +82,7 @@ const attributedOrder = async (req: Request, res: Response) => {
       0
     );
 
+    console.log("totalAmount",totalAmount,noOfItems, totalPrices)
     const calculatedCommission =
       (collaboration.commissionType === "PERCENTAGE"
         ? totalPrices[0] * (collaboration.commissionValue / 100)
