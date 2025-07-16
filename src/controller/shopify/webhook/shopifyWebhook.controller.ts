@@ -82,6 +82,8 @@ const matchingItems = data.order_data.line_items?.filter(
 // Calculate number of items
 const noOfItems = matchingItems.length;
 
+// Step 3: Extract the individual prices (optional, for inspection/logging)
+const individualPrices = matchingItems.map((item: any) => Number(item.price || 0));
 // Calculate total amount for the matching items
 const totalAmount = matchingItems.reduce(
   (acc: number, item: any) => acc + Number(item.price || 0),
@@ -89,10 +91,10 @@ const totalAmount = matchingItems.reduce(
 );
 
 
-    console.log("totalAmount",totalAmount,noOfItems, totalPrices)
+    console.log("totalAmount",totalAmount,noOfItems, individualPrices)
     const calculatedCommission =
       (collaboration.commissionType === "PERCENTAGE"
-        ? totalPrices[0] * (collaboration.commissionValue / 100)
+        ? individualPrices * (collaboration.commissionValue / 100)
         : collaboration.commissionValue) * noOfItems;
 
     // Create and store the order in your database
