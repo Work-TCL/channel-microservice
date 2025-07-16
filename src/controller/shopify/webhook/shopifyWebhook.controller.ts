@@ -60,14 +60,14 @@ const attributedOrder = async (req: Request, res: Response) => {
       collaboration.productId
     ).session(session);
 console.log("hello",collaboration.productId, product)
-    console.log("roduct?.channelProductId",product?.channelProductId, collabProductIds,data.order_data.line_items[0] )
+    console.log("roduct?.channelProductId",product?.channelProductId, collabProductIds,collabProductIds.includes(product?.channelProductId) )
     if (!collabProductIds.includes(product?.channelProductId)) {
       // Find the associated product from the collaboration
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
     }
 
     if (!product) {
-      throw new Error(`Product with ID ${collaboration.productId} not found.`);
+      throw new Error(`Product with-> ID ${collaboration.productId} not found.`);
     }
 
     // Calculate commission based on collaboration rules
