@@ -52,7 +52,7 @@ const attributedOrder = async (req: Request, res: Response) => {
       throw new Error(`Collaboration with ID ${collaborationId} not found.`);
     }
 
-    const collabProductIds = data.line_items?.map(
+    const collabProductIds = data.order_data.line_items?.map(
       (item: any) => item.product_id
     );
 
@@ -60,7 +60,7 @@ const attributedOrder = async (req: Request, res: Response) => {
       collaboration.productId
     ).session(session);
 
-    console.log("roduct?.channelProductId",product?.channelProductId, collabProductIds,data.line_items[0] )
+    console.log("roduct?.channelProductId",product?.channelProductId, collabProductIds,data.order_data.line_items[0] )
     if (!collabProductIds.includes(product?.channelProductId)) {
       // Find the associated product from the collaboration
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
@@ -71,10 +71,10 @@ const attributedOrder = async (req: Request, res: Response) => {
     }
 
     // Calculate commission based on collaboration rules
-    const noOfItems = data.line_items?.filter(
+    const noOfItems = data.order_data.line_items?.filter(
       (item: any) => item.product_id === product?.channelProductId
     ).length;
-    const totalPrices = data.line_items?.filter(
+    const totalPrices = data.order_data.line_items?.filter(
       (item: any) => item.product_id === product?.channelProductId
     );
     const totalAmount = totalPrices.reduce(
