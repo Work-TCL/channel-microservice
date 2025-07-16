@@ -60,8 +60,9 @@ const attributedOrder = async (req: Request, res: Response) => {
       collaboration.productId
     ).session(session);
 console.log("hello",collaboration.productId, product)
-    console.log("roduct?.channelProductId",product?.channelProductId, collabProductIds,collabProductIds.includes(product?.channelProductId) )
-    if (!collabProductIds.includes(product?.channelProductId)) {
+    console.log("roduct?.channelProductId",product?.channelProductId, collabProductIds, (!collabProductIds.map(String).includes(String(product?.channelProductId))) {
+ )
+if (!collabProductIds.map(String).includes(String(product?.channelProductId))) {
       // Find the associated product from the collaboration
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
     }
