@@ -59,7 +59,7 @@ const attributedOrder = async (req: Request, res: Response) => {
     const product = await ProductModel.findById(
       collaboration.productId
     ).session(session);
-
+console.log("hello",collaboration.productId, product)
     console.log("roduct?.channelProductId",product?.channelProductId, collabProductIds,data.order_data.line_items[0] )
     if (!collabProductIds.includes(product?.channelProductId)) {
       // Find the associated product from the collaboration
