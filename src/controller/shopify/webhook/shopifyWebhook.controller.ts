@@ -71,17 +71,23 @@ if (!collabProductIds.map(String).includes(String(product?.channelProductId))) {
       throw new Error(`Product with-> ID ${collaboration.productId} not found.`);
     }
 
-    // Calculate commission based on collaboration rules
-    const noOfItems = data.order_data.line_items?.filter(
-      (item: any) => item.product_id === product?.channelProductId
-    ).length;
-    const totalPrices = data.order_data.line_items?.filter(
-      (item: any) => item.product_id === product?.channelProductId
-    );
-    const totalAmount = totalPrices.reduce(
-      (acc: number, item: any) => acc + item.price,
-      0
-    );
+    // Normalize channelProductId to a string for safe comparison
+const channelProductId = String(product?.channelProductId);
+
+// Filter line items matching this product
+const matchingItems = data.order_data.line_items?.filter(
+  (item: any) => String(item.product_id) === channelProductId
+) || [];
+
+// Calculate number of items
+const noOfItems = matchingItems.length;
+
+// Calculate total amount for the matching items
+const totalAmount = matchingItems.reduce(
+  (acc: number, item: any) => acc + Number(item.price || 0),
+  0
+);
+
 
     console.log("totalAmount",totalAmount,noOfItems, totalPrices)
     const calculatedCommission =
