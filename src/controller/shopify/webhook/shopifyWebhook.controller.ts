@@ -94,7 +94,7 @@ const totalAmount = matchingItems.reduce(
     console.log("totalAmount",totalAmount,noOfItems, individualPrices)
     const calculatedCommission =
       (collaboration.commissionType === "PERCENTAGE"
-        ? individualPrices * (collaboration.commissionValue / 100)
+        ? individualPrices[0] * (collaboration.commissionValue / 100)
         : collaboration.commissionValue) * noOfItems;
 
     // Create and store the order in your database
