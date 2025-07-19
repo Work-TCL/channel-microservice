@@ -86,7 +86,7 @@ const attributedOrder = async (req: Request, res: Response) => {
     const noOfItems = matchingItem.quantity;
 
     // Step 3: Extract the individual prices (optional, for inspection/logging)
-    const individualPrice = matchingItem.price / noOfItems; // some of quantity coming from shopify
+    const individualPrice = matchingItem.price; // some of quantity coming from shopify
 
     const calculatedCommission =
       (collaboration.commissionType === "PERCENTAGE"

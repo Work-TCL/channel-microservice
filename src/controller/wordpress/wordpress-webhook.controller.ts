@@ -20,7 +20,7 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
 
   try {
     const data = req.body;
-
+    console.log("datafta",data.lineItems)
     if (!data) return res.status(400).json({ error: "Empty webhook payload" });
 
     const orderId = data.orderId;
@@ -88,7 +88,7 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
       (collaboration.commissionType === "PERCENTAGE"
         ? individualPrice * (collaboration.commissionValue / 100)
         : collaboration.commissionValue) * noOfItems;
-
+        console.log("calculatedCommission", calculatedCommission, individualPrice, noOfItems);
     // Save order
     const order = await OrderModel.create(
       [
