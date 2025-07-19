@@ -92,7 +92,12 @@ const attributedOrder = async (req: Request, res: Response) => {
       (collaboration.commissionType === "PERCENTAGE"
         ? individualPrice * (collaboration.commissionValue / 100)
         : collaboration.commissionValue) * noOfItems;
-    console.log("calculatedCommission", calculatedCommission, individualPrice, noOfItems);
+    console.log(
+      "calculatedCommission",
+      calculatedCommission,
+      individualPrice,
+      noOfItems
+    );
     // Create and store the order in your database
     const [order] = await OrderModel.create(
       [
@@ -168,6 +173,11 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
         .filter(Boolean);
 
       if (deliveredOrders?.length) {
+        const orders = await OrderModel.find({
+          orderId: { $in: deliveredOrders },
+        }).session(session);
+
+        const updates = [];
         // ✅ Update status for all delivered orders
         await OrderModel.updateMany(
           { orderId: { $in: deliveredOrders } },
@@ -175,43 +185,74 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
           { session }
         );
 
-        // 🔄 Process commission release for each delivered order
-        for (const orderId of deliveredOrders) {
-          const order: any = await OrderModel.findOne({ orderId }).session(
-            session
+        for (const order of orders) {
+          const product = await ProductModel.findById(order.productId)
+            .select("blockedDays")
+            .lean();
+
+          let blockedUntil: Date | undefined = undefined;
+
+          if (product?.blockedDays && typeof product.blockedDays === "number") {
+            const now = new Date();
+            blockedUntil = new Date(
+              now.getTime() + product.blockedDays * 24 * 60 * 60 * 1000
+            );
+          }
+
+          updates.push(
+            OrderModel.updateOne(
+              { _id: order._id },
+              {
+                $set: {
+                  orderStatus: "DELIVERED",
+                  ...(blockedUntil ? { blockedUntil } : {}),
+                },
+              },
+              { session }
+            )
           );
-          if (!order) continue;
-
-          const collaboration = await CollaborationModel.findById(
-            order.collaborationId
-          ).session(session);
-          if (!collaboration) continue;
-
-          const vendor = await VendorModel.findById(collaboration.vendorId)
-            .select("accountId")
-            .session(session);
-          const creator = await CreatorModel.findById(collaboration.creatorId)
-            .select("accountId")
-            .session(session);
-
-          if (!vendor?.accountId || !creator?.accountId) {
-            throw new Error("Missing account ID for vendor or creator");
-          }
-
-          if (order.commission > 0) {
-            await removeBlockedCommission(
-              vendor.accountId.toString(),
-              order.commission,
-              session
-            );
-            await releaseBlockedToMain(
-              creator.accountId.toString(),
-              order.commission,
-              session
-            );
-          }
         }
+
+        await Promise.all(updates);
       }
+
+      // 🔄 Process commission release for each delivered order
+      // for (const orderId of deliveredOrders) {
+      //   const order: any = await OrderModel.findOne({ orderId }).session(
+      //     session
+      //   );
+      //   if (!order) continue;
+
+      //   const collaboration = await CollaborationModel.findById(
+      //     order.collaborationId
+      //   ).session(session);
+      //   if (!collaboration) continue;
+
+      //   const vendor = await VendorModel.findById(collaboration.vendorId)
+      //     .select("accountId")
+      //     .session(session);
+      //   const creator = await CreatorModel.findById(collaboration.creatorId)
+      //     .select("accountId")
+      //     .session(session);
+
+      //   if (!vendor?.accountId || !creator?.accountId) {
+      //     throw new Error("Missing account ID for vendor or creator");
+      //   }
+
+      //   if (order.commission > 0) {
+      //     await removeBlockedCommission(
+      //       vendor.accountId.toString(),
+      //       order.commission,
+      //       session
+      //     );
+      //     await releaseBlockedToMain(
+      //       creator.accountId.toString(),
+      //       order.commission,
+      //       session
+      //     );
+      //   }
+      // }
+      // }
     }
 
     // 👉 Handle "order_cancelled" event
@@ -348,6 +389,79 @@ const shopifyVisitEvent = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Error in shopifyVisitEvent:", error.message || error);
     return null;
+  }
+};
+
+export const releaseBlockedAmounts = async () => {
+  try {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // 1. Fetch delivered orders with blockedUntil within past 30 days and already passed
+    const deliveredOrders = await OrderModel.find({
+      orderStatus: "DELIVERED",
+      blockedUntil: {
+        $exists: true,
+        $gte: thirtyDaysAgo,
+        $lte: now,
+      },
+    });
+
+    const stillBlocked: any[] = [];
+    const unblocked: any[] = [];
+
+    for (const order of deliveredOrders) {
+      const { blockedUntil, orderId, commission, collaborationId } = order;
+
+      const currentTime = new Date();
+
+      if (blockedUntil && new Date(blockedUntil) > currentTime) {
+        stillBlocked.push(orderId);
+        console.log(
+          `🟡 Order ${orderId} is still blocked until ${blockedUntil}`
+        );
+        continue;
+      }
+
+      const collaboration = await CollaborationModel.findById(
+        collaborationId
+      ).lean();
+      if (!collaboration) {
+        console.warn(`⚠️ Collaboration not found for order ${orderId}`);
+        continue;
+      }
+
+      const vendor = await VendorModel.findById(collaboration.vendorId)
+        .select("accountId")
+        .lean();
+      const creator = await CreatorModel.findById(collaboration.creatorId)
+        .select("accountId")
+        .lean();
+
+      if (!vendor?.accountId || !creator?.accountId) {
+        console.warn(
+          `⚠️ Missing account ID for vendor or creator in order ${orderId}`
+        );
+        continue;
+      }
+
+      if (commission && commission > 0) {
+        await removeBlockedCommission(vendor.accountId.toString(), commission);
+        await releaseBlockedToMain(creator.accountId.toString(), commission);
+        console.log(`✅ Released ₹${commission} for Order ${orderId}`);
+      }
+
+      unblocked.push(orderId);
+    }
+
+    console.log(`🎯 Processed ${deliveredOrders.length} orders`);
+    console.log(`🟢 Unblocked orders: ${unblocked.length}`);
+    console.log(`🟡 Still blocked orders: ${stillBlocked.length}`);
+  } catch (err: any) {
+    console.error(
+      "❌ Error in cron job for delivered orders:",
+      err.message || err
+    );
   }
 };
 

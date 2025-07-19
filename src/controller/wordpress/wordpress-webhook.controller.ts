@@ -20,7 +20,7 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
 
   try {
     const data = req.body;
-    console.log("datafta",data.lineItems)
+    console.log("datafta", data.lineItems);
     if (!data) return res.status(400).json({ error: "Empty webhook payload" });
 
     const orderId = data.orderId;
@@ -88,7 +88,12 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
       (collaboration.commissionType === "PERCENTAGE"
         ? individualPrice * (collaboration.commissionValue / 100)
         : collaboration.commissionValue) * noOfItems;
-        console.log("calculatedCommission", calculatedCommission, individualPrice, noOfItems);
+    console.log(
+      "calculatedCommission",
+      calculatedCommission,
+      individualPrice,
+      noOfItems
+    );
     // Save order
     const order = await OrderModel.create(
       [
@@ -182,7 +187,35 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
     let updatedStatus = "";
 
     if (event_type === "order_delivered") {
-      updatedStatus = "DELIVERED";
+      const order = await OrderModel.findOne({ orderId }).session(session);
+      if (!order) {
+        throw new Error(`Order not found for orderId: ${orderId}`);
+      }
+      const product = await ProductModel.findById(order.productId)
+        .select("blockedDays")
+        .lean();
+
+      let blockedUntil: Date | undefined = undefined;
+
+      if (product?.blockedDays && typeof product.blockedDays === "number") {
+        const now = new Date();
+        blockedUntil = new Date(
+          now.getTime() + product.blockedDays * 24 * 60 * 60 * 1000
+        );
+      }
+
+      await OrderModel.updateOne(
+        { _id: order._id },
+        {
+          $set: {
+            orderStatus: "DELIVERED",
+            ...(blockedUntil ? { blockedUntil } : {}),
+          },
+        },
+        { session }
+      );
+
+      console.log(`✅ Order ${orderId} marked as DELIVERED`);
     } else if (event_type === "order_cancelled") {
       updatedStatus = "CANCELLED";
     } else if (event_type === "order_refunded") {
@@ -201,8 +234,8 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
         const creatorId = creator.accountId.toString();
 
         if (event_type === "order_delivered") {
-          await removeBlockedCommission(vendorId, result.commission, session);
-          await releaseBlockedToMain(creatorId, result.commission, session);
+          // await removeBlockedCommission(vendorId, result.commission, session);
+          // await releaseBlockedToMain(creatorId, result.commission, session);
         } else if (
           event_type === "order_cancelled" ||
           event_type === "order_refunded"
