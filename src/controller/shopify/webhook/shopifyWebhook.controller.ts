@@ -21,7 +21,7 @@ const attributedOrder = async (req: Request, res: Response) => {
 
   try {
     const data = req.body;
-    console.log("data", data);
+    console.log("data", data.order_data.line_items);
     // Extract required order fields
     const orderId = data.order_data?.id;
     const orderAmount = parseFloat(data.order_data?.total_price || "0");
