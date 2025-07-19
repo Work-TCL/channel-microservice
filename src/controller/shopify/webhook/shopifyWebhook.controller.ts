@@ -92,7 +92,7 @@ const attributedOrder = async (req: Request, res: Response) => {
       (collaboration.commissionType === "PERCENTAGE"
         ? individualPrice * (collaboration.commissionValue / 100)
         : individualPrice * collaboration.commissionValue) * noOfItems;
-
+    console.log("calculatedCommission", calculatedCommission, individualPrice, noOfItems);
     // Create and store the order in your database
     const [order] = await OrderModel.create(
       [
