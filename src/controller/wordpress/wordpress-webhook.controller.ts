@@ -87,7 +87,7 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
     const calculatedCommission =
       (collaboration.commissionType === "PERCENTAGE"
         ? individualPrice * (collaboration.commissionValue / 100)
-        : individualPrice * collaboration.commissionValue) * noOfItems;
+        : collaboration.commissionValue) * noOfItems;
 
     // Save order
     const order = await OrderModel.create(
