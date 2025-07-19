@@ -49,25 +49,52 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
       throw new Error(`Collaboration with ID ${collaborationId} not found.`);
     }
 
+    const collabProductIds = data.lineItems?.map((item: any) => item.productId);
+
     const product = await ProductModel.findById(
       collaboration.productId
     ).session(session);
-    if (!product) {
+
+    if (
+      !collabProductIds.map(String).includes(String(product?.channelProductId))
+    ) {
+      // Find the associated product from the collaboration
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
     }
 
+    if (!product) {
+      throw new Error(
+        `Product with ID ->${collaboration.productId} not found.`
+      );
+    }
+
+    // Normalize channelProductId to a string for safe comparison
+    const channelProductId = String(product?.channelProductId);
+
+    // Filter line items matching this product
+    const matchingItem =
+      data.lineItems?.find(
+        (item: any) => String(item.productId) === channelProductId
+      ) || [];
+
+    // Calculate number of items
+    const noOfItems = matchingItem.quantity;
+
+    // Step 3: Extract the individual prices (optional, for inspection/logging)
+    const individualPrice = matchingItem.price / noOfItems;
+
     // Calculate commission
     const calculatedCommission =
-      collaboration.commissionType === "PERCENTAGE"
-        ? orderAmount * (collaboration.commissionValue / 100)
-        : collaboration.commissionValue;
+      (collaboration.commissionType === "PERCENTAGE"
+        ? individualPrice * (collaboration.commissionValue / 100)
+        : individualPrice * collaboration.commissionValue) * noOfItems;
 
     // Save order
     const order = await OrderModel.create(
       [
         {
           orderId,
-          orderAmount,
+          orderAmount: individualPrice * noOfItems,
           orderDate,
           collaborationId,
           channel,

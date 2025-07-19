@@ -21,7 +21,7 @@ const attributedOrder = async (req: Request, res: Response) => {
 
   try {
     const data = req.body;
-    console.log("data",data)
+    console.log("data", data);
     // Extract required order fields
     const orderId = data.order_data?.id;
     const orderAmount = parseFloat(data.order_data?.total_price || "0");
@@ -59,50 +59,46 @@ const attributedOrder = async (req: Request, res: Response) => {
     const product = await ProductModel.findById(
       collaboration.productId
     ).session(session);
-console.log("hello",collaboration.productId, product)
-    console.log("roduct?.channelProductId",product?.channelProductId, collabProductIds, (!collabProductIds.map(String).includes(String(product?.channelProductId))) 
- )
-if (!collabProductIds.map(String).includes(String(product?.channelProductId))) {
+
+    if (
+      !collabProductIds.map(String).includes(String(product?.channelProductId))
+    ) {
       // Find the associated product from the collaboration
       throw new Error(`Product with ID ${collaboration.productId} not found.`);
     }
 
     if (!product) {
-      throw new Error(`Product with-> ID ${collaboration.productId} not found.`);
+      throw new Error(
+        `Product with-> ID ${collaboration.productId} not found.`
+      );
     }
 
     // Normalize channelProductId to a string for safe comparison
-const channelProductId = String(product?.channelProductId);
+    const channelProductId = String(product?.channelProductId);
 
-// Filter line items matching this product
-const matchingItems = data.order_data.line_items?.filter(
-  (item: any) => String(item.product_id) === channelProductId
-) || [];
+    // Filter line items matching this product
+    const matchingItem =
+      data.order_data.line_items?.find(
+        (item: any) => String(item.product_id) === channelProductId
+      ) || [];
 
-// Calculate number of items
-const noOfItems = matchingItems.length;
+    // Calculate number of items
+    const noOfItems = matchingItem.quantity;
 
-// Step 3: Extract the individual prices (optional, for inspection/logging)
-const individualPrices = matchingItems.map((item: any) => Number(item.price || 0));
-// Calculate total amount for the matching items
-const totalAmount = matchingItems.reduce(
-  (acc: number, item: any) => acc + Number(item.price || 0),
-  0
-);
+    // Step 3: Extract the individual prices (optional, for inspection/logging)
+    const individualPrice = matchingItem.price / noOfItems; // some of quantity coming from shopify
 
-
-    console.log("totalAmount",totalAmount,noOfItems, individualPrices)
     const calculatedCommission =
       (collaboration.commissionType === "PERCENTAGE"
-        ? individualPrices[0] * (collaboration.commissionValue / 100)
-        : collaboration.commissionValue) * noOfItems;
+        ? individualPrice * (collaboration.commissionValue / 100)
+        : individualPrice * collaboration.commissionValue) * noOfItems;
 
     // Create and store the order in your database
     const [order] = await OrderModel.create(
       [
         {
           orderId,
-          totalAmount,
+          orderAmount: individualPrice * noOfItems,
           orderDate,
           collaborationId,
           channel,
@@ -152,7 +148,9 @@ const totalAmount = matchingItems.reduce(
     session.endSession();
 
     console.error("Error in attributedOrder:", error.message || error);
-    return res.status(500).json({ error: "Internal server error" });
+    return res
+      .status(500)
+      .json({ error: error.message || "Internal server error" });
   }
 };
 
