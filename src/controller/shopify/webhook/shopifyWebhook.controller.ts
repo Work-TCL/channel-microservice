@@ -285,6 +285,7 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
           throw new Error("Missing account ID for vendor or creator");
         }
 
+        console.log("order.commission",order.commission)
         if (order.commission > 0) {
           await releaseBlockedToMain(
             vendor.accountId.toString(),
@@ -302,6 +303,7 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
 
     // 👉 Handle "order_refunded" event
     else if (data.event_type === "order_refunded") {
+      console.log("object")
       const refundedOrders = data?.all_data?.transactions
         ?.map((transaction: any) => transaction?.order_id)
         .filter(Boolean);
@@ -394,16 +396,16 @@ const shopifyVisitEvent = async (req: Request, res: Response) => {
 
 export const releaseBlockedAmounts = async () => {
   try {
+    console.log("hello");
     const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 32 * 24 * 60 * 60 * 1000);
 
-    // 1. Fetch delivered orders with blockedUntil within past 30 days and already passed
+    // 1. Fetch delivered orders with blockedUntil within past 32 days and already passed
     const deliveredOrders = await OrderModel.find({
       orderStatus: "DELIVERED",
       blockedUntil: {
         $exists: true,
         $gte: thirtyDaysAgo,
-        $lte: now,
       },
     });
 
@@ -449,6 +451,12 @@ export const releaseBlockedAmounts = async () => {
         await removeBlockedCommission(vendor.accountId.toString(), commission);
         await releaseBlockedToMain(creator.accountId.toString(), commission);
         console.log(`✅ Released ₹${commission} for Order ${orderId}`);
+
+        // 🧹 Remove blockedUntil to avoid reprocessing
+        await OrderModel.updateOne(
+          { _id: order._id },
+          { $unset: { blockedUntil: "" } }
+        );
       }
 
       unblocked.push(orderId);
