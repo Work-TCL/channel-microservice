@@ -12,5 +12,5 @@ app.use(cors())
 app.use(express.json()); // Add this line to parse JSON bodies
 
 app.use(router);
-releaseBlockedAmounts()
+
 export default app;

@@ -2,11 +2,14 @@ import { Router } from 'express';
 import { shopifyController, shopifyProductController } from '../controller';
 import { VendorAuthMiddleware } from '../middlewares/vendorAuth.middleware';
 import { acceptedShopifyCollaboration, getSalesFromShopify, getShopifyCollaborationList } from '../controller/sales/shopifySales.controller';
-import { getShopifyProductDetails, getShopifyProductList, connectShopifyStore} from '../controller/shopify/shopifyNew.controller';
+import { getShopifyProductDetails, getShopifyProductList, connectShopifyStore, generateConnectionLink, verifyConnectionKey} from '../controller/shopify/shopifyNew.controller';
 
 const router = Router();
 
-router.post('/connect', VendorAuthMiddleware, connectShopifyStore); // connect shopify store
+// router.post('/connect', VendorAuthMiddleware, connectShopifyStore); // connect shopify store
+router.post('/generate-key',VendorAuthMiddleware, generateConnectionLink); // connect shopify store
+
+router.post('/verify-key', verifyConnectionKey);
 
 router.get('/product/list', VendorAuthMiddleware, getShopifyProductList); // get product list
 
