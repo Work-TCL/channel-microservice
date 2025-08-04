@@ -8,7 +8,7 @@ import {
 } from "../../database/model";
 import { AuthRequest } from "../../types/authRequest";
 import { SHOPIFY_API_KEY, SHOPIFY_URL } from "../../config";
-import jwt from "jsonwebtoken";
+import jwt, { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 
 export const generateConnectionLink = async (
   req: AuthRequest,
@@ -38,27 +38,38 @@ export const generateConnectionLink = async (
 export const verifyConnectionKey = async (req: Request, res: Response) => {
   try {
     const { token, uniqueId, shopUrl } = req.body;
+
     if (!token) return sendApiResponse(res, 400, "Token is required");
     if (!uniqueId || !shopUrl) {
       return sendApiResponse(res, 400, "uniqueId and shopUrl are required");
     }
 
-    const decoded = jwt.verify(token, "SHOPIFY") as {
-      accountId: string;
-      vendorId: string;
-      domain: string;
-    };
+    let decoded: { accountId: string; vendorId: string; domain: string };
+
+    try {
+      decoded = jwt.verify(token, "SHOPIFY") as typeof decoded;
+    } catch (err) {
+      if (err instanceof TokenExpiredError) {
+        return sendApiResponse(res, 401, "Token has expired. Please request a new connection link.");
+      } else if (err instanceof JsonWebTokenError) {
+        return sendApiResponse(res, 401, "Invalid token. Authentication failed.");
+      } else {
+        console.error("Unexpected token error:", err);
+        return sendApiResponse(res, 500, "Token verification failed due to server error.");
+      }
+    }
 
     const vendor = await VendorModel.findById(decoded.vendorId);
-    // console.log("vendor", vendor);
     if (!vendor) return sendApiResponse(res, 400, "Vendor not found");
 
     if (vendor.accountId.toString() !== decoded.accountId.toString()) {
-      return sendApiResponse(res, 400, "Invalid key");
+      return sendApiResponse(res, 400, "Invalid key - account mismatch");
     }
 
-    if(decoded.domain !== shopUrl) return sendApiResponse(res, 400, "Invalid key");
-    
+    if (decoded.domain !== shopUrl) {
+      return sendApiResponse(res, 400, "Invalid key - domain mismatch");
+    }
+
     const existingChannel = await ChannelModel.findOne({
       channelType: "shopify",
       vendorId: vendor._id,
@@ -71,12 +82,9 @@ export const verifyConnectionKey = async (req: Request, res: Response) => {
       channelType: "shopify",
       channelStatus: "active",
       vendorId: vendor._id,
-      channelConfig: {
-        domain: shopUrl,
-      },
+      channelConfig: { domain: shopUrl },
     });
 
-    // Update vendor step and status
     vendor.completed_step = 3;
     if (vendor.status === "IN_PROGRESS") {
       vendor.status = "PENDING_APPROVAL";
@@ -89,8 +97,8 @@ export const verifyConnectionKey = async (req: Request, res: Response) => {
       vendor: vendor.toObject(),
     });
   } catch (e) {
-    console.error("Token verification failed", e);
-    return sendApiResponse(res, 500, "Token verification failed");
+    console.error("Unexpected server error:", e);
+    return sendApiResponse(res, 500, "An unexpected error occurred.");
   }
 };
 
