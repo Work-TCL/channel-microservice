@@ -157,7 +157,7 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
 
   try {
     const { event_type, orderId, crmAffiliateId } = req.body;
-
+    console.log("object----", orderId, event_type)
     if (!orderId) {
       return res.status(400).json({ error: "Missing orderId" });
     }
