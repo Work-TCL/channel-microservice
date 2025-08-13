@@ -321,6 +321,7 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
           );
         }
 
+        
         // Update order record
         await OrderModel.updateOne(
           { _id: order._id },
@@ -330,7 +331,7 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
               orderAmount: individualPrice * remainingQty,
               orderStatus:
                 remainingQty > 0
-                  ? "PARTIALLY_DELIVERED"
+                  ? order?.orderStatus
                   : event_type === "order_cancelled"
                   ? "CANCELLED"
                   : "REFUNDED",
