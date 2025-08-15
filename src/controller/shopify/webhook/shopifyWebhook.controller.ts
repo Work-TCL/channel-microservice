@@ -513,7 +513,7 @@ console.log("object----", data.attribution_data)
 
     if (!order) continue;
 
-    const refundQty = matchingItem.line_item.quantity || 0; // refunded qty from webhook
+    const refundQty = matchingItem.quantity || 0; // refunded qty from webhook
     const remainingQty = order.quantity - refundQty;
     console.log("object-----",refundQty,remainingQty)
     const refundCommission =
