@@ -195,7 +195,7 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
     const data = req.body.all_data;
     const { event_type } = req.body;
     if (!data) return res.status(400).json({ error: "Empty webhook payload" });
-
+console.log("event_type",event_type)
     if (event_type === "order_delivered") {
       await handleOrderDelivery(req.body, session);
     } else if (event_type === "order_cancelled") {
@@ -448,7 +448,7 @@ async function handleRefundOrder(data: any, session: ClientSession) {
   if (!orderId) {
     throw new Error("Missing required order data from WordPress webhook.");
   }
-
+console.log("object----", data.attribution_data)
   const affiliateId = data.attribution_data?.affiliateId?.split("-")[1];
   if (!affiliateId) {
     throw new Error("Missing affiliateId in attribution data.");
