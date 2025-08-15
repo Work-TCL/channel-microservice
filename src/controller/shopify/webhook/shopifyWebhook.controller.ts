@@ -82,7 +82,7 @@ const attributedOrder = async (req: Request, res: Response) => {
     })
       .select("_id channelProductId")
       .session(session);
-
+console.log("object",collabProductIds,products)
     // -------------------------------
     // 6. Find active collaborations for those products
     // -------------------------------
@@ -91,7 +91,7 @@ const attributedOrder = async (req: Request, res: Response) => {
       collaborationStatus: "ACTIVE",
       productId: { $in: products?.map((el) => el._id) },
     }).lean();
-
+console.log("collaboration", collaborations)
     // Array to collect orders for bulk insert
     const ordersToCreate: any[] = [];
 
