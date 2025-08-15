@@ -37,7 +37,7 @@ const attributedOrder = async (req: Request, res: Response) => {
     // -------------------------------
     // 2. Validate affiliate / collaboration ID
     // -------------------------------
-    const affiliateId = req.body.attribution_data.affiliateId;
+    const affiliateId = req.body?.attribution_data?.affiliateId?.split("-")[1];
     if (!affiliateId) {
       throw new Error("Missing affiliateId in attribution data.");
     }
@@ -250,7 +250,7 @@ async function handleOrderDelivery(data: any, session: ClientSession) {
     throw new Error("Missing required order data from WordPress webhook.");
   }
 
-  const affiliateId = data.attribution_data.crmAffiliateId;
+  const affiliateId = data.attribution_data?.affiliateId?.split("-")[1];
   if (!affiliateId) {
     throw new Error("Missing affiliateId in attribution data.");
   }
@@ -340,7 +340,7 @@ async function handleCancelOrder(data: any, session: ClientSession) {
     throw new Error("Missing required order data from WordPress webhook.");
   }
 
-  const affiliateId = data.attribution_data.crmAffiliateId;
+  const affiliateId = data.attribution_data?.affiliateId?.split("-")[1];
   if (!affiliateId) {
     throw new Error("Missing affiliateId in attribution data.");
   }
@@ -449,7 +449,7 @@ async function handleRefundOrder(data: any, session: ClientSession) {
     throw new Error("Missing required order data from WordPress webhook.");
   }
 
-  const affiliateId = data.attribution_data.crmAffiliateId;
+  const affiliateId = data.attribution_data?.affiliateId?.split("-")[1];
   if (!affiliateId) {
     throw new Error("Missing affiliateId in attribution data.");
   }
