@@ -72,7 +72,7 @@ const attributedOrder = async (req: Request, res: Response) => {
     // -------------------------------
     // 5. Get all products from webhook line items
     // -------------------------------
-    const collabProductIds = data.lineItems?.map((item: any) =>
+    const collabProductIds = data.line_items?.map((item: any) =>
       String(item.product_id)
     );
 
