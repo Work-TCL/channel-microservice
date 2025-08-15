@@ -13,38 +13,44 @@ import {
   releaseMainToBlocked,
   removeBlockedCommission,
 } from "../../../common/wallet/walletTransaction";
-import mongoose from "mongoose";
+import mongoose, { ClientSession, SessionOperation } from "mongoose";
 
 // Shopify order attribution webhook handler
 const attributedOrder = async (req: Request, res: Response) => {
   const session = await mongoose.startSession(); // Start DB session for transaction
 
   try {
-    const data = req.body;
-    console.log("data", data.order_data.line_items);
-    // Extract required order fields
-    const orderId = data.order_data?.id;
-    const orderAmount = parseFloat(data.order_data?.total_price || "0");
-    const orderDate = data.order_data?.created_at;
+    // -------------------------------
+    // 1. Validate request payload
+    // -------------------------------
+    const data = req.body.order_data;
+    if (!data) return res.status(400).json({ error: "Empty webhook payload" });
 
-    // Validate order data
+    const orderId = data.id;
+    const orderAmount = parseFloat(data.total_price || "0");
+    const orderDate = data?.created_at;
+
     if (!orderId || !orderAmount || !orderDate) {
-      throw new Error("Missing required order data from Shopify webhook.");
+      throw new Error("Missing required order data from WordPress webhook.");
     }
 
-    // Extract and validate affiliate ID from attribution payload
-    const affiliateId = data.attribution_data?.affiliateId;
-    if (!affiliateId || !affiliateId.includes("-")) {
-      throw new Error("Invalid or missing affiliateId in attribution data.");
+    // -------------------------------
+    // 2. Validate affiliate / collaboration ID
+    // -------------------------------
+    const affiliateId = req.body.attribution_data.affiliateId;
+    if (!affiliateId) {
+      throw new Error("Missing affiliateId in attribution data.");
     }
 
-    // Extract collaborationId from affiliateId (format: prefix-<collaborationId>)
-    const collaborationId = affiliateId.split("-")[1];
+    const collaborationId = affiliateId;
     const channel = "shopify";
 
-    await session.startTransaction(); // Begin MongoDB transaction
+    // Start DB transaction
+    session.startTransaction();
 
-    // Find the related collaboration using the extracted ID
+    // -------------------------------
+    // 3. Get collaboration details
+    // -------------------------------
     const collaboration = await CollaborationModel.findById(
       collaborationId
     ).session(session);
@@ -52,102 +58,125 @@ const attributedOrder = async (req: Request, res: Response) => {
       throw new Error(`Collaboration with ID ${collaborationId} not found.`);
     }
 
-    const collabProductIds = data.order_data.line_items?.map(
-      (item: any) => item.product_id
-    );
-
-    const product = await ProductModel.findById(
-      collaboration.productId
-    ).session(session);
-
-    if (
-      !collabProductIds.map(String).includes(String(product?.channelProductId))
-    ) {
-      // Find the associated product from the collaboration
-      throw new Error(`Product with ID ${collaboration.productId} not found.`);
-    }
-
-    if (!product) {
-      throw new Error(
-        `Product with-> ID ${collaboration.productId} not found.`
-      );
-    }
-
-    // Normalize channelProductId to a string for safe comparison
-    const channelProductId = String(product?.channelProductId);
-
-    // Filter line items matching this product
-    const matchingItem =
-      data.order_data.line_items?.find(
-        (item: any) => String(item.product_id) === channelProductId
-      ) || [];
-
-    // Calculate number of items
-    const noOfItems = matchingItem.quantity;
-
-    // Step 3: Extract the individual prices (optional, for inspection/logging)
-    const individualPrice = matchingItem.price; // some of quantity coming from shopify
-
-    const calculatedCommission =
-      (collaboration.commissionType === "PERCENTAGE"
-        ? individualPrice * (collaboration.commissionValue / 100)
-        : collaboration.commissionValue) * noOfItems;
-    console.log(
-      "calculatedCommission",
-      calculatedCommission,
-      individualPrice,
-      noOfItems
-    );
-    // Create and store the order in your database
-    const [order] = await OrderModel.create(
-      [
-        {
-          orderId,
-          orderAmount: individualPrice * noOfItems,
-          orderDate,
-          collaborationId,
-          channel,
-          productId: product._id,
-          channelProductId: product.channelProductId,
-          commission: calculatedCommission,
-          orderStatus: "PENDING",
-        },
-      ],
-      { session }
-    );
-
-    // Fetch vendor and creator accounts for wallet updates
+    // -------------------------------
+    // 4. Get vendor & creator accounts
+    // -------------------------------
     const vendor = await VendorModel.findById(collaboration.vendorId)
       .select("accountId")
       .session(session);
+
     const creator = await CreatorModel.findById(collaboration.creatorId)
       .select("accountId")
       .session(session);
 
-    // Deduct commission from vendor's main balance into blocked
-    if (vendor && calculatedCommission > 0) {
-      await releaseMainToBlocked(
-        vendor.accountId.toString(),
-        vendor._id.toString(),
-        calculatedCommission,
-        session
+    // -------------------------------
+    // 5. Get all products from webhook line items
+    // -------------------------------
+    const collabProductIds = data.lineItems?.map((item: any) =>
+      String(item.product_id)
+    );
+
+    const products = await ProductModel.find({
+      channelProductId: { $in: collabProductIds },
+      vendorId: vendor?._id,
+    })
+      .select("_id channelProductId")
+      .session(session);
+
+    // -------------------------------
+    // 6. Find active collaborations for those products
+    // -------------------------------
+    const collaborations = await CollaborationModel.find({
+      creatorId: creator?._id,
+      collaborationStatus: "ACTIVE",
+      productId: { $in: products?.map((el) => el._id) },
+    }).lean();
+
+    // Array to collect orders for bulk insert
+    const ordersToCreate: any[] = [];
+
+    // -------------------------------
+    // 7. Loop through collaborations and process matching items
+    // -------------------------------
+    for (const collab of collaborations) {
+      // Match product to collaboration
+      const matchedProduct = products.find(
+        (p) => p._id.toString() === collab.productId.toString()
       );
+      if (!matchedProduct) continue;
+
+      // Find matching item from webhook data
+      const matchingItem = data.line_items?.find(
+        (item: any) =>
+          String(item.product_id) === String(matchedProduct.channelProductId)
+      );
+      if (!matchingItem) continue;
+
+      // -------------------------------
+      // 8. Calculate commission for matched item
+      // -------------------------------
+      const noOfItems = matchingItem.quantity || 1;
+      const individualPrice = matchingItem.price / noOfItems;
+
+      const calculatedCommission =
+        (collab.commissionType === "PERCENTAGE"
+          ? individualPrice * (collab.commissionValue / 100)
+          : collab.commissionValue) * noOfItems;
+
+      // -------------------------------
+      // 9. Wallet updates for vendor & creator
+      // -------------------------------
+      if (vendor && calculatedCommission > 0) {
+        await releaseMainToBlocked(
+          vendor.accountId.toString(),
+          vendor._id.toString(),
+          calculatedCommission,
+          session
+        );
+      }
+
+      if (creator && calculatedCommission > 0) {
+        await blockCommission(
+          creator.accountId.toString(),
+          calculatedCommission,
+          session
+        );
+      }
+
+      // -------------------------------
+      // 10. Prepare order object for DB insert
+      // -------------------------------
+      ordersToCreate.push({
+        orderId,
+        orderAmount: individualPrice * noOfItems,
+        orderDate,
+        collaborationId: collab._id,
+        channel,
+        productId: matchedProduct._id,
+        channelProductId: matchedProduct.channelProductId,
+        commission: calculatedCommission,
+        orderStatus: "PENDING",
+        quantity: noOfItems,
+      });
     }
 
-    // Block commission into creator's wallet
-    if (creator && calculatedCommission > 0) {
-      await blockCommission(
-        creator.accountId.toString(),
-        calculatedCommission,
-        session
-      );
+    // -------------------------------
+    // 11. Save all orders in bulk
+    // -------------------------------
+    if (ordersToCreate.length > 0) {
+      await OrderModel.insertMany(ordersToCreate, { session });
     }
 
-    await session.commitTransaction(); // Commit DB changes
-    session.endSession(); // End session
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
 
-    console.log("Order stored and wallets updated successfully:", order);
-    return res.status(200).json({ success: true, order });
+    console.log(
+      "Order stored and wallets updated successfully:",
+      ordersToCreate
+    );
+
+    return res.status(200).json({ success: true, order: ordersToCreate });
   } catch (error: any) {
     await session.abortTransaction(); // Rollback on failure
     session.endSession();
@@ -163,200 +192,20 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
   const session = await mongoose.startSession();
 
   try {
-    const data = req.body;
-    await session.startTransaction(); // Start MongoDB transaction
+    const data = req.body.all_data;
+    const { event_type } = req.body;
+    if (!data) return res.status(400).json({ error: "Empty webhook payload" });
 
-    // 👉 Handle "order_delivered" event
-    if (data.event_type === "order_delivered") {
-      const deliveredOrders = data?.all_data?.fulfillments
-        .map((fulfillment: any) => fulfillment?.order_id)
-        .filter(Boolean);
-
-      if (deliveredOrders?.length) {
-        const orders = await OrderModel.find({
-          orderId: { $in: deliveredOrders },
-        }).session(session);
-
-        const updates = [];
-        // ✅ Update status for all delivered orders
-        await OrderModel.updateMany(
-          { orderId: { $in: deliveredOrders } },
-          { $set: { orderStatus: "DELIVERED" } },
-          { session }
-        );
-
-        for (const order of orders) {
-          const product = await ProductModel.findById(order.productId)
-            .select("blockedDays")
-            .lean();
-
-          let blockedUntil: Date | undefined = undefined;
-
-          if (product?.blockedDays && typeof product.blockedDays === "number") {
-            const now = new Date();
-            blockedUntil = new Date(
-              now.getTime() + product.blockedDays * 24 * 60 * 60 * 1000
-            );
-          }
-
-          updates.push(
-            OrderModel.updateOne(
-              { _id: order._id },
-              {
-                $set: {
-                  orderStatus: "DELIVERED",
-                  ...(blockedUntil ? { blockedUntil } : {}),
-                },
-              },
-              { session }
-            )
-          );
-        }
-
-        await Promise.all(updates);
-      }
-
-      // 🔄 Process commission release for each delivered order
-      // for (const orderId of deliveredOrders) {
-      //   const order: any = await OrderModel.findOne({ orderId }).session(
-      //     session
-      //   );
-      //   if (!order) continue;
-
-      //   const collaboration = await CollaborationModel.findById(
-      //     order.collaborationId
-      //   ).session(session);
-      //   if (!collaboration) continue;
-
-      //   const vendor = await VendorModel.findById(collaboration.vendorId)
-      //     .select("accountId")
-      //     .session(session);
-      //   const creator = await CreatorModel.findById(collaboration.creatorId)
-      //     .select("accountId")
-      //     .session(session);
-
-      //   if (!vendor?.accountId || !creator?.accountId) {
-      //     throw new Error("Missing account ID for vendor or creator");
-      //   }
-
-      //   if (order.commission > 0) {
-      //     await removeBlockedCommission(
-      //       vendor.accountId.toString(),
-      //       order.commission,
-      //       session
-      //     );
-      //     await releaseBlockedToMain(
-      //       creator.accountId.toString(),
-      //       order.commission,
-      //       session
-      //     );
-      //   }
-      // }
-      // }
-    }
-
-    // 👉 Handle "order_cancelled" event
-    else if (data.event_type === "order_cancelled") {
-      const cancelledOrderId = data?.data?.id;
-
-      if (cancelledOrderId) {
-        const order: any = await OrderModel.findOne({
-          orderId: cancelledOrderId,
-        }).session(session);
-        if (!order) throw new Error("Order not found");
-
-        await OrderModel.updateOne(
-          { orderId: cancelledOrderId },
-          { $set: { orderStatus: "CANCELLED" } },
-          { session }
-        );
-
-        const collaboration = await CollaborationModel.findById(
-          order.collaborationId
-        ).session(session);
-        const vendor = await VendorModel.findById(collaboration?.vendorId)
-          .select("accountId")
-          .session(session);
-        const creator = await CreatorModel.findById(collaboration?.creatorId)
-          .select("accountId")
-          .session(session);
-
-        if (!vendor?.accountId || !creator?.accountId) {
-          throw new Error("Missing account ID for vendor or creator");
-        }
-
-        console.log("order.commission",order.commission)
-        if (order.commission > 0) {
-          await releaseBlockedToMain(
-            vendor.accountId.toString(),
-            order.commission,
-            session
-          );
-          await removeBlockedCommission(
-            creator.accountId.toString(),
-            order.commission,
-            session
-          );
-        }
-      }
-    }
-
-    // 👉 Handle "order_refunded" event
-    else if (data.event_type === "order_refunded") {
-      console.log("object")
-      const refundedOrders = data?.all_data?.transactions
-        ?.map((transaction: any) => transaction?.order_id)
-        .filter(Boolean);
-
-      if (refundedOrders?.length) {
-        await OrderModel.updateMany(
-          { orderId: { $in: refundedOrders } },
-          { $set: { orderStatus: "RETURNED" } },
-          { session }
-        );
-
-        // 🔄 Process commission reversal for each refunded order
-        for (const orderId of refundedOrders) {
-          const order: any = await OrderModel.findOne({ orderId }).session(
-            session
-          );
-          if (!order) continue;
-
-          const collaboration = await CollaborationModel.findById(
-            order.collaborationId
-          ).session(session);
-          if (!collaboration) continue;
-
-          const vendor = await VendorModel.findById(collaboration.vendorId)
-            .select("accountId")
-            .session(session);
-          const creator = await CreatorModel.findById(collaboration.creatorId)
-            .select("accountId")
-            .session(session);
-
-          if (!vendor?.accountId || !creator?.accountId) {
-            throw new Error("Missing account ID for vendor or creator");
-          }
-
-          if (order.commission > 0) {
-            await releaseBlockedToMain(
-              vendor.accountId.toString(),
-              order.commission,
-              session
-            );
-            await removeBlockedCommission(
-              creator.accountId.toString(),
-              order.commission,
-              session
-            );
-          }
-        }
-      }
+    if (event_type === "order_delivered") {
+      await handleOrderDelivery(req.body, session);
+    } else if (event_type === "order_cancelled") {
+      await handleCancelOrder(req.body, session);
+    } else if (event_type === "order_refunded") {
+      await handleRefundOrder(req.body, session);
     }
 
     await session.commitTransaction();
     session.endSession();
-
     return res.status(200).json({ success: true });
   } catch (error: any) {
     await session.abortTransaction();
@@ -393,6 +242,315 @@ const shopifyVisitEvent = async (req: Request, res: Response) => {
     return null;
   }
 };
+
+async function handleOrderDelivery(data: any, session: ClientSession) {
+  const orderId = data.all_data.id;
+
+  if (!orderId) {
+    throw new Error("Missing required order data from WordPress webhook.");
+  }
+
+  const affiliateId = data.attribution_data.crmAffiliateId;
+  if (!affiliateId) {
+    throw new Error("Missing affiliateId in attribution data.");
+  }
+
+  const collaborationId = affiliateId;
+  session.startTransaction();
+
+  // Get main collaboration
+  const collaboration = await CollaborationModel.findById(
+    collaborationId
+  ).session(session);
+  if (!collaboration) {
+    throw new Error(`Collaboration with ID ${collaborationId} not found.`);
+  }
+
+  const vendor = await VendorModel.findById(collaboration.vendorId)
+    .select("accountId")
+    .session(session);
+  const creator = await CreatorModel.findById(collaboration.creatorId)
+    .select("accountId")
+    .session(session);
+
+  const collabProductIds = data.all_data.line_items?.map((item: any) =>
+    String(item.product_id)
+  );
+  const products = await ProductModel.find({
+    channelProductId: { $in: collabProductIds },
+    vendorId: vendor?._id,
+  }).select("_id channelProductId blockedDays");
+
+  const collaborations = await CollaborationModel.find({
+    creatorId: creator?._id,
+    collaborationStatus: "ACTIVE",
+    productId: { $in: products?.map((el) => el._id) },
+  }).lean();
+
+  for (const collab of collaborations) {
+    const matchedProduct = products.find(
+      (p) => p._id.toString() === collab.productId.toString()
+    );
+    if (!matchedProduct) continue;
+
+    const matchingItem = data.all_data.line_items?.find(
+      (item: any) =>
+        String(item.product_id) === String(matchedProduct.channelProductId)
+    );
+    if (!matchingItem) continue;
+
+    // Find matching order in DB
+    const order = await OrderModel.findOne({
+      orderId,
+      productId: matchedProduct._id,
+      collaborationId: collab._id,
+    }).session(session);
+
+    if (!order) continue;
+
+    // Calculate blockedUntil date
+    let blockedUntil: Date | undefined = undefined;
+    if (
+      matchedProduct.blockedDays &&
+      typeof matchedProduct.blockedDays === "number"
+    ) {
+      const now = new Date();
+      blockedUntil = new Date(
+        now.getTime() + matchedProduct.blockedDays * 24 * 60 * 60 * 1000
+      );
+    }
+
+    await OrderModel.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          orderStatus: "DELIVERED",
+          ...(blockedUntil ? { blockedUntil } : {}),
+        },
+      },
+      { session }
+    );
+  }
+}
+
+async function handleCancelOrder(data: any, session: ClientSession) {
+  const orderId = data.all_data.id;
+
+  if (!orderId) {
+    throw new Error("Missing required order data from WordPress webhook.");
+  }
+
+  const affiliateId = data.attribution_data.crmAffiliateId;
+  if (!affiliateId) {
+    throw new Error("Missing affiliateId in attribution data.");
+  }
+
+  const collaborationId = affiliateId;
+  const channel = "shopify";
+
+  session.startTransaction();
+
+  // Get main collaboration
+  const collaboration = await CollaborationModel.findById(
+    collaborationId
+  ).session(session);
+  if (!collaboration) {
+    throw new Error(`Collaboration with ID ${collaborationId} not found.`);
+  }
+
+  const vendor = await VendorModel.findById(collaboration.vendorId)
+    .select("accountId")
+    .session(session);
+  const creator = await CreatorModel.findById(collaboration.creatorId)
+    .select("accountId")
+    .session(session);
+
+  const collabProductIds = data.all_data.line_items?.map((item: any) =>
+    String(item.product_id)
+  );
+  const products = await ProductModel.find({
+    channelProductId: { $in: collabProductIds },
+    vendorId: vendor?._id,
+  }).select("_id channelProductId blockedDays");
+
+  const collaborations = await CollaborationModel.find({
+    creatorId: creator?._id,
+    collaborationStatus: "ACTIVE",
+    productId: { $in: products?.map((el) => el._id) },
+  }).lean();
+
+  for (const collab of collaborations) {
+    const matchedProduct = products.find(
+      (p) => p._id.toString() === collab.productId.toString()
+    );
+    if (!matchedProduct) continue;
+
+    const matchingItem = data.all_data.line_items?.find(
+      (item: any) =>
+        String(item.product_id) === String(matchedProduct.channelProductId)
+    );
+    if (!matchingItem) continue;
+
+    const noOfItems = matchingItem.quantity || 1;
+    const individualPrice = matchingItem.price / noOfItems;
+
+    // Find matching order in DB
+    const order = await OrderModel.findOne({
+      orderId,
+      productId: matchedProduct._id,
+      collaborationId: collab._id,
+    }).session(session);
+
+    if (!order) continue;
+
+    const refundQty = matchingItem.quantity || 0; // refunded qty from webhook
+    const remainingQty = order.quantity - refundQty;
+
+    const refundCommission =
+      (collab.commissionType === "PERCENTAGE"
+        ? individualPrice * (collab.commissionValue / 100)
+        : collab.commissionValue) * refundQty;
+
+    // Reverse only for refunded qty
+    if (vendor && refundCommission > 0) {
+      await releaseBlockedToMain(
+        vendor.accountId.toString(),
+        refundCommission,
+        session
+      );
+    }
+    if (creator && refundCommission > 0) {
+      await removeBlockedCommission(
+        creator.accountId.toString(),
+        refundCommission,
+        session
+      );
+    }
+
+    // Update order record
+    await OrderModel.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          quantity: remainingQty,
+          orderAmount: individualPrice * remainingQty,
+          orderStatus: remainingQty > 0 ? order?.orderStatus : "CANCELLED",
+        },
+      },
+      { session }
+    );
+  }
+}
+
+async function handleRefundOrder(data: any, session: ClientSession) {
+  const orderId = data.all_data.order_id;
+
+  if (!orderId) {
+    throw new Error("Missing required order data from WordPress webhook.");
+  }
+
+  const affiliateId = data.attribution_data.crmAffiliateId;
+  if (!affiliateId) {
+    throw new Error("Missing affiliateId in attribution data.");
+  }
+
+  const collaborationId = affiliateId;
+  const channel = "shopify";
+
+  session.startTransaction();
+
+  // Get main collaboration
+  const collaboration = await CollaborationModel.findById(
+    collaborationId
+  ).session(session);
+  if (!collaboration) {
+    throw new Error(`Collaboration with ID ${collaborationId} not found.`);
+  }
+
+  const vendor = await VendorModel.findById(collaboration.vendorId)
+    .select("accountId")
+    .session(session);
+  const creator = await CreatorModel.findById(collaboration.creatorId)
+    .select("accountId")
+    .session(session);
+
+  const collabProductIds = data.all_data.refund_line_items?.map((item: any) =>
+    String(item.line_item.product_id)
+  );
+  const products = await ProductModel.find({
+    channelProductId: { $in: collabProductIds },
+    vendorId: vendor?._id,
+  }).select("_id channelProductId blockedDays");
+
+  const collaborations = await CollaborationModel.find({
+    creatorId: creator?._id,
+    collaborationStatus: "ACTIVE",
+    productId: { $in: products?.map((el) => el._id) },
+  }).lean();
+
+  for (const collab of collaborations) {
+    const matchedProduct = products.find(
+      (p) => p._id.toString() === collab.productId.toString()
+    );
+    if (!matchedProduct) continue;
+
+    const matchingItem = data.all_data.refund_line_items?.find(
+      (item: any) =>
+        String(item.line_item.product_id) ===
+        String(matchedProduct.channelProductId)
+    );
+    if (!matchingItem) continue;
+
+    const noOfItems = matchingItem.line_item.quantity || 1;
+    const individualPrice = matchingItem.line_item.price / noOfItems;
+
+    // Find matching order in DB
+    const order = await OrderModel.findOne({
+      orderId,
+      productId: matchedProduct._id,
+      collaborationId: collab._id,
+    }).session(session);
+
+    if (!order) continue;
+
+    const refundQty = matchingItem.line_item.quantity || 0; // refunded qty from webhook
+    const remainingQty = order.quantity - refundQty;
+
+    const refundCommission =
+      (collab.commissionType === "PERCENTAGE"
+        ? individualPrice * (collab.commissionValue / 100)
+        : collab.commissionValue) * refundQty;
+
+    // Reverse only for refunded qty
+    if (vendor && refundCommission > 0) {
+      await releaseBlockedToMain(
+        vendor.accountId.toString(),
+        refundCommission,
+        session
+      );
+    }
+    if (creator && refundCommission > 0) {
+      await removeBlockedCommission(
+        creator.accountId.toString(),
+        refundCommission,
+        session
+      );
+    }
+
+    // Update order record
+    await OrderModel.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          quantity: remainingQty,
+          orderAmount: individualPrice * remainingQty,
+          orderStatus: remainingQty > 0 ? order?.orderStatus : "REFUNDED",
+        },
+      },
+      { session }
+    );
+  }
+}
 
 export const releaseBlockedAmounts = async () => {
   try {
