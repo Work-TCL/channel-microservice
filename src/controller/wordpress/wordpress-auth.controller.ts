@@ -77,7 +77,8 @@ export const authorizeWordpress = async (req: AuthRequest, res: Response) => {
       const updateFields: any = { completed_step: 3 };
 
       if (vendor.status === "IN_PROGRESS") {
-        updateFields.status = "PENDING_APPROVAL";
+        // updateFields.status = "PENDING_APPROVAL";
+        updateFields.status = "APPROVED";
       }
 
       const updatedVendor = await VendorModel.findByIdAndUpdate(

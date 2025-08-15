@@ -87,7 +87,8 @@ export const verifyConnectionKey = async (req: Request, res: Response) => {
 
     vendor.completed_step = 3;
     if (vendor.status === "IN_PROGRESS") {
-      vendor.status = "PENDING_APPROVAL";
+      // vendor.status = "PENDING_APPROVAL";
+      vendor.status = "APPROVED";
     }
 
     await vendor.save();
