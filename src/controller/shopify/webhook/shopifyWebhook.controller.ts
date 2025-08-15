@@ -515,7 +515,7 @@ console.log("object----", data.attribution_data)
 
     const refundQty = matchingItem.line_item.quantity || 0; // refunded qty from webhook
     const remainingQty = order.quantity - refundQty;
-
+    console.log("object-----",refundQty,remainingQty)
     const refundCommission =
       (collab.commissionType === "PERCENTAGE"
         ? individualPrice * (collab.commissionValue / 100)
