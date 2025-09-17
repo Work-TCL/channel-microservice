@@ -16,8 +16,8 @@ export const generateConnectionLink = async (
 ) => {
   try {
     const { _id: vendorId } = req.user;
-    const { domain } = req.body;
-    if (!domain) return sendApiResponse(res, 400, "Domain is required");
+    // const { domain } = req.body;
+    // if (!domain) return sendApiResponse(res, 400, "Domain is required");
 
     const vendor = await VendorModel.findById(vendorId)
       .select("accountId")
@@ -26,13 +26,52 @@ export const generateConnectionLink = async (
 
     const accountId = vendor.accountId;
 
-    const payload = { accountId, vendorId, domain };
+    const payload = { accountId, vendorId };
     const token = jwt.sign(payload, "SHOPIFY", { expiresIn: "1d" });
-    return sendApiResponse(res, 200, "Key generated successfully", { key: token , domain});
+    return sendApiResponse(res, 200, "Key generated successfully", { key: token });
   } catch (e) {
     console.log("error while generating connection key", e);
     return sendApiResponse(res, 400, "Something went wrong", e);
   }
+};
+
+export const disconnectShopifyStore = async (req: AuthRequest, res: Response) => {
+  try {
+    const { uniqueId, domain } = req.body;
+
+    if (!domain) {
+      return sendApiResponse(res, 400, "Domain is required");
+    }
+
+    const channel = await ChannelModel.findOne({
+      // channelId: uniqueId,
+      channelType: "shopify",
+      "channelConfig.domain": domain,
+    });
+    console.log("channel", channel);
+    if (!channel) return sendApiResponse(res, 400, "Channel not found");
+
+    // Delete Shopify channel(s) for this vendor by domain
+    const deletedChannels = await ChannelModel.deleteMany({
+      // vendorId: channel.vendorId,
+      channelType: "shopify",
+      "channelConfig.domain": domain,
+    });
+    console.log("deletedChannels", deletedChannels);
+    const vendor = await VendorModel.findById(channel.vendorId);
+    if (!vendor) return sendApiResponse(res, 400, "Vendor not found");
+
+    vendor.completed_step = 0;
+    await vendor.save();
+    
+    const channels = await ChannelModel.find({ vendorId: channel.vendorId });
+
+    console.log("channels", channels);
+    return sendApiResponse(res, 200, "Shop disconnected successfully");
+  } catch (e) {
+    console.log("error while disconnecting shopify store", e);
+    return sendApiResponse(res, 400, "Something went wrong", e);
+  } 
 };
 
 export const verifyConnectionKey = async (req: Request, res: Response) => {
@@ -44,7 +83,7 @@ export const verifyConnectionKey = async (req: Request, res: Response) => {
       return sendApiResponse(res, 400, "uniqueId and shopUrl are required");
     }
 
-    let decoded: { accountId: string; vendorId: string; domain: string };
+    let decoded: { accountId: string; vendorId: string;};
 
     try {
       decoded = jwt.verify(token, "SHOPIFY") as typeof decoded;
@@ -66,16 +105,18 @@ export const verifyConnectionKey = async (req: Request, res: Response) => {
       return sendApiResponse(res, 400, "Invalid key - account mismatch");
     }
 
-    if (decoded.domain !== shopUrl) {
-      return sendApiResponse(res, 400, "Invalid key - domain mismatch");
-    }
+    // if (decoded.domain !== shopUrl) {
+    //   return sendApiResponse(res, 400, "Invalid key - domain mismatch");
+    // }
 
     const existingChannel = await ChannelModel.findOne({
       channelType: "shopify",
       vendorId: vendor._id,
     });
 
-    if (existingChannel) return sendApiResponse(res, 400, "Shop already connected");
+    if (existingChannel) {
+      await ChannelModel.deleteOne({ _id: existingChannel._id });
+    }
 
     const channel = await ChannelModel.create({
       channelId: uniqueId,
@@ -206,6 +247,7 @@ export const getShopifyProductList = async (
   res: Response
 ) => {
   try {
+    console.log("shopifyNew.ts")
     const { page = 1, limit = 20 } = req.query;
     const { _id: vendorId } = req.user;
 
@@ -222,7 +264,9 @@ export const getShopifyProductList = async (
     if (!channel) {
       return sendApiResponse(res, 400, "Channel not found");
     }
-
+    console.log(channel);
+    console.log(channel.channelConfig);
+    console.log(channel.channelConfig.domain);
     const url =
       SHOPIFY_URL +
       `/crm/products?shop_url=${channel.channelConfig.domain}&page=${page}&limit=${limit}`;

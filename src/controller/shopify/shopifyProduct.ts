@@ -4,6 +4,7 @@ import { AuthRequest } from "../../types/authRequest";
 import { ChannelModel } from "../../database/model";
 
 const getShopifyProductList = async (req: AuthRequest, res: Response) => {
+    console.log("shopifyProduct.ts")
     const { _id: vendorId } = req.user;
     try {
         const { per_page, cursor } = req.query;
