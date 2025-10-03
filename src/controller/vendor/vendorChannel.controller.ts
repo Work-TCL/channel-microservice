@@ -8,7 +8,9 @@ const getVendorChannelsList = async (req: AuthRequest, res: Response) => {
     
     try {
         const channels = await ChannelModel.find({ vendorId });
-
+        if (channels.length === 0) {
+            return sendApiResponse(res, 400, "Vendor channels list not found");
+        }
         return sendApiResponse(res, 200, "Vendor channels list", channels);
     } catch (error) {
         console.log("fetch channels list for vendor", error)
