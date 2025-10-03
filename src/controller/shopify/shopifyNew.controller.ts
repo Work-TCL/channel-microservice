@@ -201,7 +201,7 @@ export const connectShopifyStore = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getShopifyProductList = async (
+export const getShopifyProductList = async ( 
   req: AuthRequest,
   res: Response
 ) => {
@@ -331,5 +331,143 @@ export const getShopifyProductDetails = async (
   } catch (e) {
     console.log("error while fetching product details", e);
     return sendApiResponse(res, 400, "Something went wrong", e);
+  }
+};
+
+
+export const updateShopifyPriceEvery2hr = async () => {
+  try {
+    const shopifyProductsList = await ProductModel.aggregate([
+      {
+        $match: {
+          channelName: "shopify",
+          status: "ACTIVE"
+        }
+      },
+      // Join with Vendor
+      {
+        $lookup: {
+          from: "vendors",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "vendor"
+        }
+      },
+      { $unwind: "$vendor" },
+      // Join with Channel (to get shop_url)
+      {
+        $lookup: {
+          from: "channels",
+          let: { vendorId: "$vendorId" },
+          pipeline: [
+            { $match: { $expr: { $and: [
+              { $eq: ["$vendorId", "$$vendorId"] },
+              { $eq: ["$channelType", "shopify"] }
+            ] } } }
+          ],
+          as: "channel"
+        }
+      },
+      { $unwind: "$channel" },
+      // Only fetch non-deleted accounts
+      {
+        $lookup: {
+          from: "accounts",
+          localField: "vendor.accountId",
+          foreignField: "_id",
+          as: "account"
+        }
+      },
+      { $unwind: "$account" },
+      {
+        $match: {
+          "account.isDeleted": { $ne: true }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          price: 1,
+          vendorId: 1,
+          channelProductId: 1,
+          variants: 1,
+          "channel.channelConfig.domain": 1
+        }
+      }
+    ]);
+
+    console.log(`Checking ${shopifyProductsList.length} active Shopify products for price updates...`);
+
+    for (const product of shopifyProductsList) {
+      const shopUrl = product.channel?.channelConfig?.domain;
+      const productId = product.channelProductId;
+
+      if (!shopUrl || !productId) continue;
+
+      const url = `${SHOPIFY_URL}/crm/products/${productId}?shop_url=${shopUrl}`;
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+
+      const apiKey = SHOPIFY_API_KEY;
+      if (apiKey) {
+        headers["x-crm-api-key"] = apiKey;
+      }
+  
+
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers
+        });
+
+        if (!response.ok) {
+          console.warn(`Failed to fetch Shopify product ${productId}: ${response.status}`);
+          continue;
+        }
+
+        const responseData = await response.json();
+        const productData = responseData;
+
+        if (!productData) {
+          console.warn(`No product data found for ${productId}`);
+          continue;
+        }
+
+        const newPrice = productData.variants?.[0]?.price;
+
+        // Build updated variants array
+        const updatedVariants = productData.variants.map((item: any) => ({
+          sku: item.sku,
+          price: item.price,
+          title: item.title
+        }));
+
+        const updatePayload: any = {
+          price: newPrice,
+          variants: updatedVariants
+        };
+
+        // Optional: Only update if price or variants changed
+        const hasPriceChanged = product.price !== newPrice;
+        const hasVariantsChanged = JSON.stringify(product.variants) !== JSON.stringify(updatedVariants);
+
+        if (hasPriceChanged || hasVariantsChanged) {
+          await ProductModel.updateOne(
+            { _id: product._id },
+            { $set: updatePayload }
+          );
+
+          console.log(`Updated product ${product._id} with new price and variants`);
+        }
+      } catch (err) {
+        console.error(`Error updating product ${product._id}:`, err);
+      }
+    }
+
+    console.log("Shopify price update cron job completed.");
+  } catch (e) {
+    console.error("Error in Shopify price update cron:", e);
   }
 };

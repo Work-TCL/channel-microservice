@@ -1,7 +1,6 @@
 import express from 'express';
 import { router } from './routes/index.routes';
 import './cron/index.cron'; // Import the cron jobs to ensure they are scheduled
-import { releaseBlockedAmounts } from './controller/shopify/webhook/shopifyWebhook.controller';
 const cors = require('cors')
 
 require('dotenv').config();

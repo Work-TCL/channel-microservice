@@ -1,7 +1,7 @@
 import cron from "node-cron";
-import { getMidnightYTData } from "../controller/creator/youtube/youtube.controller";
-import { getMidnightInstagramData, refreshInstagramToken } from "../controller/creator/instagram/auth.controller";
+import { refreshInstagramToken } from "../controller/creator/instagram/auth.controller";
 import { releaseBlockedAmounts } from "../controller/shopify/webhook/shopifyWebhook.controller";
+import { updateShopifyPriceEvery2hr } from "../controller/shopify/shopifyNew.controller";
 
 //Run at 1 Am every day
 // cron.schedule("0 1 * * *", async() => {
@@ -35,6 +35,15 @@ cron.schedule("0 1 * * *", async() => {
 }, {
     scheduled: true,
     timezone: "Asia/Kolkata" // Indian Standard Time (IST)
+});
+
+// Run every 2 hours
+cron.schedule("0 */2 * * *", async () => {
+  await updateShopifyPriceEvery2hr();
+  console.log("Running price update every 2 hours...");
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata"
 });
 
 // cron.schedule("* * * * *", async () => {
