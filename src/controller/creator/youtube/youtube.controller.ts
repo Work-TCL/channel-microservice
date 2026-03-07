@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import sendApiResponse from "../../../common";
 import axios from "axios";
 import {
+  APP_SCHEMA,
   FRONTEND_URL,
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
@@ -181,12 +182,14 @@ const validateYoutubeChannel = async (req: AuthRequest, res: Response) => {
 
 const handleGoogleOAuth = async (req: Request, res: Response) => {
   const { code, state } = req.query;
-  const creatorId = state;
+  const creatorId = state ? (state as string).split("-")[0] : null;
+  const redirectUrl = (state ? (state as string).split("-")[1] : null) === "app" ? APP_SCHEMA + ':/' : FRONTEND_URL;
+
   console.log("code", code, state);
 
   if (!code || !creatorId) {
     return res.redirect(
-      `${FRONTEND_URL}/creator-registration?tab=1&error=Missing required parameters`
+      `${redirectUrl}/creator-registration?tab=1&error=Missing required parameters`
     );
   }
 
@@ -220,7 +223,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
 
     if (!ytResponse.data.items || ytResponse.data.items.length === 0) {
       return res.redirect(
-        `${FRONTEND_URL}/creator-registration?tab=1&error=No YouTube channel found`
+        `${redirectUrl}/creator-registration?tab=1&error=No YouTube channel found`
       );
     }
 
@@ -240,7 +243,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
     const creator = await CreatorModel.findById(creatorId);
     if (!creator) {
       return res.redirect(
-        `${FRONTEND_URL}/creator-registration?tab=1&error=Creator not found`
+        `${redirectUrl}/creator-registration?tab=1&error=Creator not found`
       );
     }
 
@@ -251,7 +254,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
     });
     if (existingChannel) {
       return res.redirect(
-        `${FRONTEND_URL}/creator-registration?tab=1&error=Channel already exists`
+        `${redirectUrl}/creator-registration?tab=1&error=Channel already exists`
       );
     }
 
@@ -275,12 +278,12 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
 
     // Redirect user with success message
     return res.redirect(
-      `${FRONTEND_URL}/creator-registration?tab=1&message=Channel linked successfully`
+      `${redirectUrl}/creator-registration?tab=1&message=Channel linked successfully`
     );
   } catch (error: any) {
     console.error("Google OAuth Error:", error.response?.data || error.message);
     return res.redirect(
-      `${FRONTEND_URL}/creator-registration?tab=1&error=Authentication failed`
+      `${redirectUrl}/creator-registration?tab=1&error=Authentication failed`
     );
   }
 };

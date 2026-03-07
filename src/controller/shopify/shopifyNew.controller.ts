@@ -63,7 +63,7 @@ export const disconnectShopifyStore = async (req: AuthRequest, res: Response) =>
 
     vendor.completed_step = 0;
     await vendor.save();
-    
+
     const channels = await ChannelModel.find({ vendorId: channel.vendorId });
 
     console.log("channels", channels);
@@ -71,7 +71,7 @@ export const disconnectShopifyStore = async (req: AuthRequest, res: Response) =>
   } catch (e) {
     console.log("error while disconnecting shopify store", e);
     return sendApiResponse(res, 400, "Something went wrong", e);
-  } 
+  }
 };
 
 export const verifyConnectionKey = async (req: Request, res: Response) => {
@@ -83,7 +83,7 @@ export const verifyConnectionKey = async (req: Request, res: Response) => {
       return sendApiResponse(res, 400, "uniqueId and shopUrl are required");
     }
 
-    let decoded: { accountId: string; vendorId: string;};
+    let decoded: { accountId: string; vendorId: string; };
 
     try {
       decoded = jwt.verify(token, "SHOPIFY") as typeof decoded;
@@ -242,12 +242,11 @@ export const connectShopifyStore = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getShopifyProductList = async ( 
+export const getShopifyProductList = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-    console.log("shopifyNew.ts")
     const { page = 1, limit = 20 } = req.query;
     const { _id: vendorId } = req.user;
 
@@ -264,9 +263,7 @@ export const getShopifyProductList = async (
     if (!channel) {
       return sendApiResponse(res, 400, "Channel not found");
     }
-    console.log(channel);
-    console.log(channel.channelConfig);
-    console.log(channel.channelConfig.domain);
+
     const url =
       SHOPIFY_URL +
       `/crm/products?shop_url=${channel.channelConfig.domain}&page=${page}&limit=${limit}`;
@@ -404,10 +401,16 @@ export const updateShopifyPriceEvery2hr = async () => {
           from: "channels",
           let: { vendorId: "$vendorId" },
           pipeline: [
-            { $match: { $expr: { $and: [
-              { $eq: ["$vendorId", "$$vendorId"] },
-              { $eq: ["$channelType", "shopify"] }
-            ] } } }
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$vendorId", "$$vendorId"] },
+                    { $eq: ["$channelType", "shopify"] }
+                  ]
+                }
+              }
+            }
           ],
           as: "channel"
         }
@@ -458,7 +461,7 @@ export const updateShopifyPriceEvery2hr = async () => {
       if (apiKey) {
         headers["x-crm-api-key"] = apiKey;
       }
-  
+
 
       try {
         const response = await fetch(url, {
