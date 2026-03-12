@@ -56,7 +56,7 @@ export const removeBlockedCommission = async (
   if (amount <= 0) throw new Error("Amount must be positive");
 
   const wallet = await getOrCreateWallet(accountId, session);
-  if (wallet.blockedBalance < amount)
+  if (wallet.blockedBalance <= amount)
     throw new Error("Insufficient blocked balance");
 
   wallet.blockedBalance -= amount;
@@ -73,7 +73,7 @@ export const releaseBlockedToMain = async (
   if (amount <= 0) throw new Error("Amount must be positive");
 
   const wallet = await getOrCreateWallet(accountId, session);
-  if (wallet.blockedBalance < amount)
+  if (wallet.blockedBalance <= amount)
     throw new Error("Insufficient blocked balance");
 
   wallet.blockedBalance -= amount;

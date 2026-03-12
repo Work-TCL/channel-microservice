@@ -91,7 +91,6 @@ const attributedOrder = async (req: Request, res: Response) => {
       collaborationStatus: "ACTIVE",
       productId: { $in: products?.map((el) => el._id) },
     }).lean();
-    console.log("collaboration", collaborations)
     // Array to collect orders for bulk insert
     const ordersToCreate: any[] = [];
 
@@ -110,6 +109,8 @@ const attributedOrder = async (req: Request, res: Response) => {
         (item: any) =>
           String(item.product_id) === String(matchedProduct.channelProductId)
       );
+          console.log("matchingItem", matchingItem)
+
       if (!matchingItem) continue;
 
       // -------------------------------
@@ -580,7 +581,8 @@ export const releaseBlockedAmounts = async () => {
     const unblocked: any[] = [];
 
     for (const order of deliveredOrders) {
-      const { blockedUntil, orderId, commission, collaborationId } = order;
+      const { blockedUntil, orderId, commission, collaborationId, quantity } = order;
+      const totalCommission = commission || 0;
 
       const currentTime = new Date();
 
@@ -614,10 +616,10 @@ export const releaseBlockedAmounts = async () => {
         continue;
       }
 
-      if (commission && commission > 0) {
-        await removeBlockedCommission(vendor.accountId.toString(), commission);
-        await releaseBlockedToMain(creator.accountId.toString(), commission);
-        console.log(`✅ Released ₹${commission} for Order ${orderId}`);
+      if (totalCommission && totalCommission > 0) {
+        await removeBlockedCommission(vendor.accountId.toString(), totalCommission);
+        await releaseBlockedToMain(creator.accountId.toString(), totalCommission);
+        console.log(`✅ Released ₹${totalCommission} for Order ${orderId}`);
 
         // 🧹 Remove blockedUntil to avoid reprocessing
         await OrderModel.updateOne(
