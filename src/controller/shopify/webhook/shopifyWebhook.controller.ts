@@ -82,7 +82,7 @@ const attributedOrder = async (req: Request, res: Response) => {
     })
       .select("_id channelProductId")
       .session(session);
-console.log("object",collabProductIds,products)
+    console.log("object", collabProductIds, products)
     // -------------------------------
     // 6. Find active collaborations for those products
     // -------------------------------
@@ -91,7 +91,7 @@ console.log("object",collabProductIds,products)
       collaborationStatus: "ACTIVE",
       productId: { $in: products?.map((el) => el._id) },
     }).lean();
-console.log("collaboration", collaborations)
+    console.log("collaboration", collaborations)
     // Array to collect orders for bulk insert
     const ordersToCreate: any[] = [];
 
@@ -195,7 +195,7 @@ const shopifyOrderStatus = async (req: Request, res: Response) => {
     const data = req.body.all_data;
     const { event_type } = req.body;
     if (!data) return res.status(400).json({ error: "Empty webhook payload" });
-console.log("event_type",event_type)
+    console.log("event_type", event_type)
     if (event_type === "order_delivered") {
       await handleOrderDelivery(req.body, session);
     } else if (event_type === "order_cancelled") {
@@ -245,18 +245,21 @@ const shopifyVisitEvent = async (req: Request, res: Response) => {
 
 async function handleOrderDelivery(data: any, session: ClientSession) {
   const orderId = data.all_data.id;
-
+console.log("reached",orderId)
   if (!orderId) {
-    throw new Error("Missing required order data from WordPress webhook.");
+    throw new Error("Missing required order data from shopify webhook.");
   }
 
   const affiliateId = data.attribution_data?.affiliateId?.split("-")[1];
+  console.log("reached2", affiliateId);
+
   if (!affiliateId) {
     throw new Error("Missing affiliateId in attribution data.");
   }
 
   const collaborationId = affiliateId;
   session.startTransaction();
+  console.log("reached3", affiliateId);
 
   // Get main collaboration
   const collaboration = await CollaborationModel.findById(
@@ -276,6 +279,8 @@ async function handleOrderDelivery(data: any, session: ClientSession) {
   const collabProductIds = data.all_data.line_items?.map((item: any) =>
     String(item.product_id)
   );
+
+  console.log("collabProductIds", collabProductIds)
   const products = await ProductModel.find({
     channelProductId: { $in: collabProductIds },
     vendorId: vendor?._id,
@@ -287,6 +292,7 @@ async function handleOrderDelivery(data: any, session: ClientSession) {
     productId: { $in: products?.map((el) => el._id) },
   }).lean();
 
+  console.log("collaborations", collaborations.length)
   for (const collab of collaborations) {
     const matchedProduct = products.find(
       (p) => p._id.toString() === collab.productId.toString()
@@ -305,7 +311,7 @@ async function handleOrderDelivery(data: any, session: ClientSession) {
       productId: matchedProduct._id,
       collaborationId: collab._id,
     }).session(session);
-
+    console.log("order", order?._id)
     if (!order) continue;
 
     // Calculate blockedUntil date
@@ -448,7 +454,7 @@ async function handleRefundOrder(data: any, session: ClientSession) {
   if (!orderId) {
     throw new Error("Missing required order data from WordPress webhook.");
   }
-console.log("object----", data.attribution_data)
+  console.log("object----", data.attribution_data)
   const affiliateId = data.attribution_data?.affiliateId?.split("-")[1];
   if (!affiliateId) {
     throw new Error("Missing affiliateId in attribution data.");
@@ -515,7 +521,7 @@ console.log("object----", data.attribution_data)
 
     const refundQty = matchingItem.quantity || 0; // refunded qty from webhook
     const remainingQty = order.quantity - refundQty;
-    console.log("object-----",refundQty,remainingQty)
+    console.log("object-----", refundQty, remainingQty)
     const refundCommission =
       (collab.commissionType === "PERCENTAGE"
         ? individualPrice * (collab.commissionValue / 100)
