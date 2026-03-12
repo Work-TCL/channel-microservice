@@ -251,7 +251,7 @@ console.log("reached",orderId)
   }
 
   const affiliateId = data.attribution_data?.affiliateId?.split("-")[1];
-  console.log("reached2", affiliateId);
+  console.log("reached2", data.attribution_data);
 
   if (!affiliateId) {
     throw new Error("Missing affiliateId in attribution data.");
