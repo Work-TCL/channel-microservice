@@ -245,7 +245,7 @@ const shopifyVisitEvent = async (req: Request, res: Response) => {
 
 async function handleOrderDelivery(data: any, session: ClientSession) {
   const orderId = data.all_data.id;
-console.log("reached",orderId)
+  console.log("reached", orderId)
   if (!orderId) {
     throw new Error("Missing required order data from shopify webhook.");
   }
@@ -308,6 +308,7 @@ console.log("reached",orderId)
     // Find matching order in DB
     const order = await OrderModel.findOne({
       orderId,
+      status: { $ne: "SETTLED" }, // Only consider orders that are not already setteled
       productId: matchedProduct._id,
       collaborationId: collab._id,
     }).session(session);
@@ -403,6 +404,7 @@ async function handleCancelOrder(data: any, session: ClientSession) {
     // Find matching order in DB
     const order = await OrderModel.findOne({
       orderId,
+      status: { $ne: "SETTLED" }, // Only consider orders that are not already setteled
       productId: matchedProduct._id,
       collaborationId: collab._id,
     }).session(session);
@@ -513,6 +515,7 @@ async function handleRefundOrder(data: any, session: ClientSession) {
     // Find matching order in DB
     const order = await OrderModel.findOne({
       orderId,
+      status: { $ne: "SETTLED" }, // Only consider orders that are not already setteled
       productId: matchedProduct._id,
       collaborationId: collab._id,
     }).session(session);
@@ -619,7 +622,7 @@ export const releaseBlockedAmounts = async () => {
         // 🧹 Remove blockedUntil to avoid reprocessing
         await OrderModel.updateOne(
           { _id: order._id },
-          { $unset: { blockedUntil: "" } }
+          { $unset: { blockedUntil: "" }, $set: { orderStatus: "SETTLED" } }
         );
       }
 

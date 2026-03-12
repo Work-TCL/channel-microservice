@@ -37,8 +37,8 @@ cron.schedule("0 1 * * *", async() => {
     timezone: "Asia/Kolkata" // Indian Standard Time (IST)
 });
 
-// Run every 2 hours
-cron.schedule("0 */2 * * *", async () => {
+// Run every 6 hours
+cron.schedule("0 */6 * * *", async () => {
   await updateShopifyPriceEvery2hr();
   console.log("Running price update every 2 hours...");
 }, {

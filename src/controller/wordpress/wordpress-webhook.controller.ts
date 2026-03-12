@@ -264,6 +264,7 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
       // Find matching order in DB
       const order = await OrderModel.findOne({
         orderId,
+        status: { $ne: "SETTLED" }, // Only consider orders that are not already SETTLED
         productId: matchedProduct._id,
         collaborationId: collab._id,
       }).session(session);
@@ -321,7 +322,7 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
           );
         }
 
-        
+
         // Update order record
         await OrderModel.updateOne(
           { _id: order._id },
@@ -333,8 +334,8 @@ export const wordpressOrderStatus = async (req: Request, res: Response) => {
                 remainingQty > 0
                   ? order?.orderStatus
                   : event_type === "order_cancelled"
-                  ? "CANCELLED"
-                  : "REFUNDED",
+                    ? "CANCELLED"
+                    : "REFUNDED",
             },
           },
           { session }
