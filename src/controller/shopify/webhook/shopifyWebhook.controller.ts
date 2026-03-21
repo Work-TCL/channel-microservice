@@ -117,7 +117,7 @@ const attributedOrder = async (req: Request, res: Response) => {
       // 8. Calculate commission for matched item
       // -------------------------------
       const noOfItems = matchingItem.quantity || 1;
-      const individualPrice = matchingItem.price / noOfItems;
+      const individualPrice = matchingItem.price;
 
       const calculatedCommission =
         (collab.commissionType === "PERCENTAGE"
@@ -400,7 +400,7 @@ async function handleCancelOrder(data: any, session: ClientSession) {
     if (!matchingItem) continue;
 
     const noOfItems = matchingItem.quantity || 1;
-    const individualPrice = matchingItem.price / noOfItems;
+    const individualPrice = matchingItem.price;
 
     // Find matching order in DB
     const order = await OrderModel.findOne({
@@ -511,7 +511,7 @@ async function handleRefundOrder(data: any, session: ClientSession) {
     if (!matchingItem) continue;
 
     const noOfItems = matchingItem.line_item.quantity || 1;
-    const individualPrice = matchingItem.line_item.price / noOfItems;
+    const individualPrice = matchingItem.line_item.price;
 
     // Find matching order in DB
     const order = await OrderModel.findOne({
