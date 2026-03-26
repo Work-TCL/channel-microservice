@@ -38,7 +38,8 @@ export const authorizeWordpress = async (req: AuthRequest, res: Response) => {
     const timeoutId = setTimeout(() => {
       controller.abort();
     }, 60000);
-
+    
+    console.log("shopUrl", url)
     const response = await fetch(url, {
       method: "POST",
       headers,
