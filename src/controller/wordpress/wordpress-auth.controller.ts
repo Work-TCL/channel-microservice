@@ -27,7 +27,7 @@ export const authorizeWordpress = async (req: AuthRequest, res: Response) => {
       );
     }
 
-    const url = WORDPRESS_URL + "/wp-json/crm-integration/connect";
+    const url = shopUrl + "/wp-json/crm-integration/connect";
     const headers: HeadersInit = {
       "Content-Type": "application/json",
     };

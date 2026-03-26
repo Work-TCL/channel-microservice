@@ -27,7 +27,7 @@ export const getWordpressProductList = async (
     }
 
     const url =
-      WORDPRESS_URL +
+      channel.channelConfig.domain  +
       `/wp-json/crm-integration/products?token=${channel.channelConfig.token}`;
 
     const headers: HeadersInit = {
@@ -101,7 +101,7 @@ export const getWordpressProductDetails = async (
     }
 
     const url =
-      WORDPRESS_URL +
+      channel.channelConfig.domain +
       `/wp-json/crm-integration/products/${productId}?token=${channel.channelConfig.token}`;
 
     const headers: HeadersInit = {
