@@ -2,7 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../types/authRequest";
 import sendApiResponse from "../../common";
 import { ChannelModel, VendorModel } from "../../database/model";
-import {  WORDPRESS_URL } from "../../config";
+import { WORDPRESS_URL } from "../../config";
 
 export const authorizeWordpress = async (req: AuthRequest, res: Response) => {
   const { uniqueId, shopUrl } = req.body;
@@ -29,17 +29,29 @@ export const authorizeWordpress = async (req: AuthRequest, res: Response) => {
 
     const url = WORDPRESS_URL + "/wp-json/crm-integration/connect";
     const headers: HeadersInit = {
-        "Content-Type": "application/json",
+      "Content-Type": "application/json",
     };
+    // 1. Initialize the Controller
+    const controller = new AbortController();
+
+    // 2. Set a 1-minute (60,000ms) timer
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 60000);
 
     const response = await fetch(url, {
       method: "POST",
       headers,
+      // This 'signal' is what controls the cancellation
+      signal: controller.signal,
       body: JSON.stringify({
         uniqueId: uniqueId,
         shopUrl: shopUrl,
       }),
     });
+
+    // 3. Clear the timer immediately once the server responds
+    clearTimeout(timeoutId);
 
     const data = await response.json();
     if (!response.ok) {
