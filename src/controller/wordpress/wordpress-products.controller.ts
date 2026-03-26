@@ -114,7 +114,7 @@ export const getWordpressProductDetails = async (
     const timeoutId = setTimeout(() => {
       controller.abort();
     }, 60000);
-
+console.log("urll", url)
     const response = await fetch(url, {
       method: "GET",
       headers,
