@@ -15,8 +15,6 @@ router.get('/product', VendorAuthMiddleware, getWordpressProductDetails); // get
 
 // router.post('/sales', getSalesFromShopify); // get sales from shopify
 
-// router.get('/collaborationList', getShopifyCollaborationList);
-
 // router.post('/request', acceptedShopifyCollaboration);
 
 export { router as wordpressRouter }; 

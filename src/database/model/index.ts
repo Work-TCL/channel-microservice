@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import ProductSchema from "../../../../shared-models/src/models/product";
 import CategorySchema from "../../../../shared-models/src/models/category";
 import TagsSchema from "../../../../shared-models/src/models/tags";
-import VendorProductSchema from "../../../../shared-models/src/models/vendorProduct";
 import CreatorSchema from "../../../../shared-models/src/models/creator";
 import VendorSchema from "../../../../shared-models/src/models/vendor";
 import CreatorChannelSchema from "../../../../shared-models/src/models/creatorChannel";
@@ -16,7 +15,6 @@ import WalletSchema from "../../../../shared-models/src/models/wallet";
 const ProductModel = mongoose.model("Product", ProductSchema);
 const CategoryModel = mongoose.model("Category", CategorySchema);
 const TagsModel = mongoose.model("Tags", TagsSchema);
-const VendorProductModel = mongoose.model("VendorProduct", VendorProductSchema);
 const VendorModel = mongoose.model("Vendor", VendorSchema);
 const CreatorModel = mongoose.model("Creator", CreatorSchema);
 const CreatorChannelModel = mongoose.model(
@@ -34,7 +32,6 @@ export {
   ProductModel,
   CategoryModel,
   TagsModel,
-  VendorProductModel,
   VendorModel,
   CreatorModel,
   CreatorChannelModel,

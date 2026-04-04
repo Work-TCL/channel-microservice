@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { shopifyController } from '../controller';
 import { VendorAuthMiddleware } from '../middlewares/vendorAuth.middleware';
-import { acceptedShopifyCollaboration, getSalesFromShopify, getShopifyCollaborationList} from '../controller/sales/shopifySales.controller';
+import { acceptedShopifyCollaboration, getSalesFromShopify} from '../controller/sales/shopifySales.controller';
 import { getShopifyProductDetails, getShopifyProductList, generateConnectionLink, verifyConnectionKey, disconnectShopifyStore} from '../controller/shopify/shopifyNew.controller';
 
 const router = Router();
@@ -20,8 +20,6 @@ router.get('/product', VendorAuthMiddleware, getShopifyProductDetails); // get p
 router.post('/utm/create', VendorAuthMiddleware, shopifyController.generateShopifyUTM); // create shopify utm
 
 router.post('/sales', getSalesFromShopify); // get sales from shopify
-
-router.get('/collaborationList', getShopifyCollaborationList);
 
 router.post('/request', acceptedShopifyCollaboration);
 
