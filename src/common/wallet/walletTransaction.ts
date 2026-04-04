@@ -92,12 +92,16 @@ export const releaseMainToBlocked = async (
   if (amount <= 0) throw new Error("Amount must be positive");
 
   const wallet = await getOrCreateWallet(accountId, session);
-  
+
   if (wallet.balance < amount) {
     // pause collaborations
     await CollaborationModel.updateMany(
       { vendorId: vendorId, collaborationStatus: "ACTIVE" },
       { $set: { collaborationStatus: "PAUSED" } },
+    );
+    await ProductModel.updateMany(
+      { vendorId: vendorId, status: "ACTIVE" },
+      { $set: { status: "PAUSED" } },
     );
     throw new Error("Insufficient balance");
   }
