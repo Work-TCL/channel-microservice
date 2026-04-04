@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { shopifyController, shopifyProductController } from '../controller';
+import { shopifyController } from '../controller';
 import { VendorAuthMiddleware } from '../middlewares/vendorAuth.middleware';
 import { acceptedShopifyCollaboration, getSalesFromShopify, getShopifyCollaborationList} from '../controller/sales/shopifySales.controller';
-import { getShopifyProductDetails, getShopifyProductList, connectShopifyStore, generateConnectionLink, verifyConnectionKey, disconnectShopifyStore} from '../controller/shopify/shopifyNew.controller';
+import { getShopifyProductDetails, getShopifyProductList, generateConnectionLink, verifyConnectionKey, disconnectShopifyStore} from '../controller/shopify/shopifyNew.controller';
 
 const router = Router();
 
