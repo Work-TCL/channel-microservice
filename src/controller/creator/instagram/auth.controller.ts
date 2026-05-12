@@ -214,17 +214,68 @@ const getInstagramVideoStats = async (access_token: string, channelId: string) =
     }
 };
 
-
 const getMidnightInstagramData = async () => {
     try {
-        const channels: any = await CreatorChannelModel.find({ channelType: "instagram" });
-        for (const channel of channels) {
-            await getInstagramVideoStats(channel.token, channel.channelId);
-        }
+        const channels = await CreatorChannelModel.find({
+            channelType: "instagram",
+            token: { $exists: true, $ne: null },
+        }).limit(1).sort({ createdAt: -1 }).lean();
+
+        console.log(`Instagram sync started for ${channels.length} channels`);
+
+        await Promise.allSettled(
+            channels.map(async (channel: any) => {
+                try {
+                    // Fetch latest user data
+                    const instagramUserData = await fetchInstagramUserData(
+                        channel.token
+                    );
+
+                    if (!instagramUserData?.id) {
+                        console.log(
+                            `Invalid Instagram data for channel ${channel.channelId}`
+                        );
+
+                        await CreatorChannelModel.updateOne(
+                            { _id: channel._id },
+                            {
+                                $set: {
+                                    tokenExpired: true,
+                                },
+                            }
+                        );
+
+                        return;
+                    }
+
+                    await CreatorChannelModel.updateOne(
+                        { _id: channel._id },
+                        {
+                            $set: {
+                                username: instagramUserData.username,
+                                followers: instagramUserData.followers_count || 0,
+                                tokenExpired: false,
+                                lastSyncedAt: new Date(),
+                            },
+                        }
+                    );
+                } catch (error: any) {
+                    console.log(
+                        `Instagram sync failed for ${channel.channelId}`,
+                        error?.response?.data || error.message
+                    );
+                }
+            })
+        );
+
+        console.log("Instagram midnight sync completed");
     } catch (error: any) {
-        console.log("error while getting midnight instagram data", error);
+        console.log(
+            "Error while getting midnight instagram data",
+            error.message
+        );
     }
-}
+};
 
 /**
  * Refreshes Instagram long-lived tokens for all Instagram channels.
@@ -232,55 +283,124 @@ const getMidnightInstagramData = async () => {
  */
 const refreshInstagramToken = async () => {
     try {
-        // Find Instagram channels where last token refresh was more than 10 days ago
-        const tenDaysAgo = new Date();
-        tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+        // Refresh every 45 days
+        const refreshBeforeDays = 45;
+
+        const refreshDate = new Date();
+        refreshDate.setDate(
+            refreshDate.getDate() - refreshBeforeDays
+        );
 
         const instagramChannels = await CreatorChannelModel.find({
             channelType: "instagram",
+            token: { $exists: true, $ne: null },
+            tokenExpired: { $ne: true },
             $or: [
-                { lastTokenGenerated: { $exists: false } }, // Include documents where lastTokenGenerated does not exist
-                { lastTokenGenerated: { $lte: tenDaysAgo } } // Include documents where lastTokenGenerated is older than ten days
-            ]
-        });
+                { lastTokenGenerated: { $exists: false } },
+                { lastTokenGenerated: { $lte: refreshDate } },
+            ],
+        }).lean();
 
-        if (instagramChannels.length === 0) {
-            console.log("✅ No Instagram tokens need refreshing.");
+        if (!instagramChannels.length) {
+            console.log(
+                "✅ No Instagram tokens need refreshing."
+            );
             return;
         }
 
-        for (const channel of instagramChannels) {
-            if (!channel.token) {
-                console.warn(`⚠️ No token found for channel: ${channel.channelName}`);
-                continue;
-            }
+        console.log(
+            `🔄 Refreshing ${instagramChannels.length} Instagram tokens`
+        );
 
-            try {
-                // Request to refresh the Instagram token
-                const response = await axios.get(`https://graph.instagram.com/refresh_access_token`, {
-                    params: {
-                        grant_type: "ig_refresh_token",
-                        access_token: channel.token,
-                    },
-                });
+        await Promise.allSettled(
+            instagramChannels.map(async (channel: any) => {
+                try {
+                    const response = await axios.get(
+                        "https://graph.instagram.com/refresh_access_token",
+                        {
+                            params: {
+                                grant_type: "ig_refresh_token",
+                                access_token: channel.token,
+                            },
+                            timeout: 10000,
+                        }
+                    );
 
-                const newToken = response.data.access_token;
-                console.log(`✅ Token refreshed for ${channel.channelName}:`, newToken);
+                    const newToken =
+                        response?.data?.access_token;
 
-                // Update the token in the database
-                channel.token = newToken;
-                channel.lastTokenGenerated = new Date();
-                await channel.save();
-            } catch (error: any) {
-                console.error(
-                    `❌ Failed to refresh token for ${channel.channelName}:`,
-                    error.response?.data || error.message
-                );
-            }
-        }
-    } catch (error) {
-        console.error("❌ Error refreshing Instagram tokens:", error);
+                    if (!newToken) {
+                        console.log(
+                            `❌ No token returned for ${channel.channelName}`
+                        );
+
+                        return;
+                    }
+
+                    await CreatorChannelModel.updateOne(
+                        { _id: channel._id },
+                        {
+                            $set: {
+                                token: newToken,
+                                tokenExpired: false,
+                                lastTokenGenerated: new Date(),
+                                tokenExpiresIn:
+                                    response.data.expires_in,
+                            },
+                        }
+                    );
+
+                    console.log(
+                        `✅ Token refreshed for ${channel.channelName}`
+                    );
+                } catch (error: any) {
+                    const errorData =
+                        error?.response?.data;
+
+                    console.log(
+                        `❌ Failed refresh for ${channel.channelName}`,
+                        errorData || error.message
+                    );
+
+                    const errorMessage =
+                        errorData?.error?.message || "";
+
+                    const isInvalidToken =
+                        errorMessage.includes(
+                            "Error validating access token"
+                        ) ||
+                        errorMessage.includes(
+                            "invalid_token"
+                        );
+
+                    if (isInvalidToken) {
+                        await CreatorChannelModel.updateOne(
+                            { _id: channel._id },
+                            {
+                                $set: {
+                                    tokenExpired: true,
+                                    tokenInvalidAt:
+                                        new Date(),
+                                },
+                            }
+                        );
+
+                        console.log(
+                            `⚠️ Token marked expired for ${channel.channelName}`
+                        );
+                    }
+                }
+            })
+        );
+
+        console.log(
+            "✅ Instagram token refresh completed"
+        );
+    } catch (error: any) {
+        console.error(
+            "❌ Error refreshing Instagram tokens:",
+            error.message
+        );
     }
 };
-
 export { handleInstagramAuthCallback, fetchInstagramUserData, getMidnightInstagramData, exchangeForLongLivedToken, refreshInstagramToken };

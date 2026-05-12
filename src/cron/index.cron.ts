@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { refreshInstagramToken } from "../controller/creator/instagram/auth.controller";
+import { getMidnightInstagramData, refreshInstagramToken } from "../controller/creator/instagram/auth.controller";
 import { releaseBlockedAmounts } from "../controller/shopify/webhook/shopifyWebhook.controller";
 import { updateShopifyPriceEvery2hr } from "../controller/shopify/shopifyNew.controller";
 
@@ -12,29 +12,29 @@ import { updateShopifyPriceEvery2hr } from "../controller/shopify/shopifyNew.con
 // });
 
 //Run at 2 Am every day
-// cron.schedule("0 2 * * *", async () => {
-//     console.log("Running instagram video data fetch 2 AM IST...");
-//     await getMidnightInstagramData()
-// }, {
-//     scheduled: true,
-//     timezone: "Asia/Kolkata"
-// });
+cron.schedule("0 2 */4 * *", async () => {
+  console.log("Running instagram  data fetch 2 AM IST...");
+  await getMidnightInstagramData()
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata"
+});
 
 //Run at 3 Am every day
 cron.schedule("0 3 * * *", () => {
-    console.log("🔄 Running Instagram Token Refresh Cron...");
-    refreshInstagramToken();
-  }, {
-    scheduled: true,
-    timezone: "Asia/Kolkata"
-  });
-  
- // Run at 1 Am every day
-cron.schedule("0 1 * * *", async() => {
-    await releaseBlockedAmounts();
+  console.log("🔄 Running Instagram Token Refresh Cron...");
+  refreshInstagramToken();
 }, {
-    scheduled: true,
-    timezone: "Asia/Kolkata" // Indian Standard Time (IST)
+  scheduled: true,
+  timezone: "Asia/Kolkata"
+});
+
+// Run at 1 Am every day
+cron.schedule("0 1 * * *", async () => {
+  await releaseBlockedAmounts();
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata" // Indian Standard Time (IST)
 });
 
 // Run every 6 hours
