@@ -80,7 +80,7 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
         creator.channels.push(newChannel._id);
         await creator.save();
         await newChannel.save();
-
+        console.log("hello", newChannel, redirectUrl)
         return res.redirect(`${redirectUrl}/creator-registration?tab=1&success=Instagram authentication successful`);
 
     } catch (error) {
