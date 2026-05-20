@@ -183,7 +183,7 @@ const validateYoutubeChannel = async (req: AuthRequest, res: Response) => {
 const handleGoogleOAuth = async (req: Request, res: Response) => {
   const { code, state } = req.query;
   const creatorId = state ? (state as string).split("-")[0] : null;
-  const redirectUrl = (state ? (state as string).split("-")[1] : null) === "app" ? APP_SCHEMA + ':/' : FRONTEND_URL;
+  const redirectUrl = (state ? (state as string).split("-")[1] : null) === "app" ? APP_SCHEMA + '://(auth)' : FRONTEND_URL;
 
   console.log("code", code, state);
 
