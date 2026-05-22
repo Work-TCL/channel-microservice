@@ -158,7 +158,7 @@ const validateYoutubeChannel = async (req: AuthRequest, res: Response) => {
     creator.channels.push(newChannel._id);
     await creator.save();
     await newChannel.save();
-    await getYoutubeVideoStats(channelId);
+    // await getYoutubeVideoStats(channelId);
 
     return sendApiResponse(
       res,
@@ -274,7 +274,7 @@ const handleGoogleOAuth = async (req: Request, res: Response) => {
     await newChannel.save();
 
     // Fetch YouTube video stats
-    await getYoutubeVideoStats(channelId);
+    // await getYoutubeVideoStats(channelId);
 
     // Redirect user with success message
     return res.redirect(
