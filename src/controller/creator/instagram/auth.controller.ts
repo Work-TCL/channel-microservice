@@ -67,9 +67,9 @@ const handleInstagramAuthCallback = async (req: Request, res: Response) => {
             token: long_lived_token,
         });
 
-        // if (instagramUserData.followers_count < 1000) {
-        //     return res.redirect(`${redirectUrl}/creator-registration?tab=1&error=Minimum 1,000 followers required to continue!`);
-        // }
+        if (instagramUserData.followers_count < 1000) {
+            return res.redirect(`${redirectUrl}/creator-registration?tab=1&error=Minimum 1,000 followers required to continue!`);
+        }
 
         // Step 5: Associate the new channel with the creator and save to the database
         const creator = await CreatorModel.findById(creatorId);
