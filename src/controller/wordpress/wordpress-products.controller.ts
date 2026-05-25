@@ -28,7 +28,7 @@ export const getWordpressProductList = async (
 
     const url =
       channel.channelConfig.domain  +
-      `/wp-json/crm-integration/products?token=${channel.channelConfig.token}`;
+      `/wp-json/crm-integration/products?token=${channel.channelConfig.token}&page=${page}&limit=${limit}`;
     console.log("url",url)
     const headers: HeadersInit = {
       "Content-Type": "application/json",
