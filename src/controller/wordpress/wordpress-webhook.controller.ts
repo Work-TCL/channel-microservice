@@ -24,7 +24,7 @@ export const wordPressOrderWebhook = async (req: Request, res: Response) => {
     // -------------------------------
     const data = req.body;
     if (!data) return res.status(400).json({ error: "Empty webhook payload" });
-
+    console.log("dattaa",data)
     const orderId = data.orderId;
     const orderAmount = parseFloat(data.totalAmount || "0");
     const orderDate = data?.eventTimestamp;
