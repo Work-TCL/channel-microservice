@@ -52,6 +52,8 @@ typings/
 .yarn-integrity
 
 # dotenv environment variables file
+.env
+.env.test
 .env.prod
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -89,3 +91,6 @@ temp_interactive_push.bat
 .gitignore
 branch_structure.json
 config.bat
+
+
+.vscode/
